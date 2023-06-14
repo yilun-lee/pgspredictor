@@ -1,0 +1,17 @@
+[package]
+name = "predictor"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+reader = {path = "../reader"}
+ndarray = { version = "0.15.6", features = ["rayon", "blas"] }
+blas-src = { version = "0.9", default-features = false,features = ["accelerate"] }
+anyhow = "1.0.71"
+polars = { version = "0.30.0", features = ["lazy", "ndarray"] }
+
+
+[profile.release]
+strip = true
