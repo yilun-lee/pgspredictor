@@ -1,13 +1,12 @@
-use std::ops::{Not, Range};
-
 use anyhow::Result;
-use bed_reader::{Bed, Index, ReadOptions};
-use ndarray::{Array1, Array2, ArrayBase};
-use polars::{lazy::prelude::*, prelude::*};
+use bed_reader::{Bed, ReadOptions};
+use ndarray::Array2;
+use polars::prelude::*;
 
 use super::ReadGenotype;
 
 #[allow(dead_code)]
+#[derive(Clone, Debug)]
 pub struct BedReader {
     pub bed_path: String,
     pub bed: Bed,

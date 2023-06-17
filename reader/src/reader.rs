@@ -1,4 +1,5 @@
 pub mod read_bed;
+pub mod read_bed_nolib;
 mod test;
 
 use anyhow::Result;

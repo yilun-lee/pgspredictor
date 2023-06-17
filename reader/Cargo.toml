@@ -11,7 +11,9 @@ polars = { version = "0.30.0", features = ["lazy", "ndarray"] }
 anyhow = "1.0.71"
 ndarray = { version = "0.15.6", features = ["rayon", "blas"] }
 blas-src = { version = "0.9", default-features = false,features = ["accelerate"] }
-
+rayon = "*"
+anyinput = "*"
+thiserror = "*"
 
 [profile.release]
 strip = true
