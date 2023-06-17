@@ -4,7 +4,7 @@ use anyhow::Result;
 use ndarray::prelude::*;
 use polars::{
     lazy::dsl::{col, lit},
-    prelude::{DataFrame, Float32Type, IntoLazy, NamedFrom},
+    prelude::{DataFrame, DataType, Float32Type, IntoLazy, NamedFrom},
     series::Series,
 };
 use reader::{BedReaderNoLib, ReadGenotype};
@@ -72,4 +72,16 @@ pub fn cal_scores(
     let score = gt.dot(&beta_values);
     let score_frame = score_to_frame(&batch_fam, score, score_names)?;
     Ok(score_frame)
+}
+
+pub fn get_empty_score(score_names: &Vec<String>) -> Result<DataFrame> {
+    let mut my_columns: Vec<Series> = vec![
+        Series::new_empty("FID", &DataType::Utf8),
+        Series::new_empty("IID", &DataType::Utf8),
+    ];
+    for i in 0..score_names.len() {
+        my_columns.push(Series::new_empty(&score_names[i], &DataType::Float32))
+    }
+    let score = DataFrame::new(my_columns)?;
+    Ok(score)
 }
