@@ -1,4 +1,4 @@
-pub mod read_bed;
+//pub mod read_bed;
 pub mod read_bed_nolib;
 mod test;
 
@@ -12,14 +12,11 @@ use polars::{
 pub trait ReadGenotype {
     type GenoDtype;
     type GenoIdx;
-    fn get_geno(
-        &mut self,
-        sid: &Self::GenoIdx,
-        iid: &Self::GenoIdx,
-    ) -> Result<Array2<Self::GenoDtype>>;
+    fn get_geno(&self, sid: &Self::GenoIdx, iid: &Self::GenoIdx)
+        -> Result<Array2<Self::GenoDtype>>;
 
-    fn get_ind(&mut self, iid: &Self::GenoIdx, inv: bool) -> Result<DataFrame>;
-    fn get_snp(&mut self, sid: &Self::GenoIdx, inv: bool) -> Result<DataFrame>;
+    fn get_ind(&self, iid: &Self::GenoIdx, inv: bool) -> Result<DataFrame>;
+    fn get_snp(&self, sid: &Self::GenoIdx, inv: bool) -> Result<DataFrame>;
 
     fn get_ind_schema() -> Schema {
         Schema::from_iter(

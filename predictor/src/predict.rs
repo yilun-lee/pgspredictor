@@ -1,55 +1,49 @@
 mod utils;
 
-use std::{
-    sync::{Arc, Mutex},
-    thread,
-};
+use std::{sync::Arc, thread};
 
 use anyhow::Result;
 use crossbeam::channel::{unbounded, Receiver};
-use ndarray::prelude::*;
-use polars::prelude::DataFrame;
-use reader::BedReader;
+//use ndarray::prelude::*;
+use polars::prelude::{concat, DataFrame};
+use reader::BedReaderNoLib;
 use utils::cal_scores;
 
 pub fn cal_scores_onethread(
     batch_size: usize,
     weights: &DataFrame,
-    bed: &mut BedReader,
+    bed: &BedReaderNoLib,
     score_names: &Vec<String>,
-) -> Result<Array2<f32>> {
-    let total_size = weights.shape().0;
-    let mut num_batches = total_size / batch_size;
-    if total_size % batch_size > 0 {
+) -> Result<DataFrame> {
+    let mut num_batches = bed.iid_count / batch_size;
+    if bed.iid_count % batch_size > 0 {
         num_batches += 1
     }
 
-    let ind_num = bed.fam.shape().0;
-    let mut scores = Array::zeros((ind_num, score_names.len()).f());
-    for i in 0..num_batches {
-        let score = cal_scores(weights, i, batch_size, bed, score_names)?;
-        scores += &score;
+    let mut result = cal_scores(weights, 0, batch_size, bed, score_names)?;
+    if num_batches > 1 {
+        for i in 1..num_batches {
+            let score = cal_scores(weights, i, batch_size, bed, score_names)?;
+            result = result.vstack(&score)?;
+        }
     }
-
-    Ok(scores)
+    Ok(result)
 }
 
-pub struct ThreadWorker<'a> {
+pub struct ThreadWorker {
     // batch size
     pub batch_size: usize,
     // re group
-    pub bed: Arc<Mutex<&'a mut BedReader>>,
+    pub bed: Arc<BedReaderNoLib>,
     // some config
-    pub weights: Arc<&'a DataFrame>,
+    pub weights: Arc<DataFrame>,
     // recieve from main string, file path
-    pub score_names: Arc<&'a Vec<String>>,
-    // final score
-    pub scores: Arc<Mutex<Array2<f32>>>,
+    pub score_names: Arc<Vec<String>>,
     // send from main
     pub receiver: Receiver<Option<usize>>,
 }
 
-impl<'a> ThreadWorker<'a> {
+impl<'a> ThreadWorker {
     fn run(&mut self) -> Result<()> {
         loop {
             let idx = match self.receiver.recv()? {
@@ -57,28 +51,24 @@ impl<'a> ThreadWorker<'a> {
                 None => break,
             };
 
-            let mut my_bed = self.bed.lock().unwrap();
-            let score = cal_scores(
-                *self.weights,
+            let score: DataFrame = cal_scores(
+                &*self.weights,
                 idx,
                 self.batch_size,
-                &mut *my_bed,
-                *self.score_names,
+                &*self.bed,
+                &*self.score_names,
             )?;
-
-            let mut my_score = self.scores.lock().unwrap();
-            *my_score += &score;
         }
         Ok(())
     }
 }
-
+/*
 pub fn cal_scores_par(
     thread_num: usize,
     batch_size: usize,
-    weights: &DataFrame,
-    bed: &mut BedReader,
-    score_names: &Vec<String>,
+    weights: DataFrame,
+    bed: BedReaderNoLib,
+    score_names: Vec<String>,
 ) -> Result<Array2<f32>> {
     let (sender, receiver) = unbounded();
 
@@ -86,23 +76,19 @@ pub fn cal_scores_par(
 
     // init worker
     let weights = Arc::new(weights);
-    let bed = Arc::new(Mutex::new(bed));
+    let bed = Arc::new(bed);
     let score_names = Arc::new(score_names);
-    let scores = Array::zeros((ind_num, score_names.len()).f());
-    let scores = Arc::new(Mutex::new(scores));
 
     for i in 0..thread_num {
-        let my_worker = ThreadWorker {
+        let mut my_worker = ThreadWorker {
             batch_size: batch_size,
             bed: bed.clone(),
             weights: weights.clone(),
             score_names: score_names.clone(),
-            scores: scores.clone(),
             receiver: receiver.clone(),
         };
         thread::spawn(move || my_worker.run());
     }
-    let scores = scores;
-    let scores = scores.lock().unwrap();
-    Ok(*scores)
+    Ok(scores)
 }
+*/

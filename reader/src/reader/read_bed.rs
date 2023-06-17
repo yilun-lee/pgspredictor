@@ -76,11 +76,7 @@ impl ReadGenotype for BedReader {
     type GenoDtype = f32;
     type GenoIdx = Option<Vec<isize>>;
 
-    fn get_geno(
-        &mut self,
-        sid: &Self::GenoIdx,
-        iid: &Self::GenoIdx,
-    ) -> Result<Array2<Self::GenoDtype>> {
+    fn get_geno(self, sid: &Self::GenoIdx, iid: &Self::GenoIdx) -> Result<Array2<Self::GenoDtype>> {
         let mut builder = ReadOptions::builder();
         let mut builder = match iid {
             Some(v) => builder.iid_index(v),
@@ -91,8 +87,8 @@ impl ReadGenotype for BedReader {
             Some(v) => builder.sid_index(v),
             None => &mut builder,
         };
-
-        let val = builder.f32().read(&mut self.bed)?;
+        // dont know how to fix
+        let val = builder.f32().read(self.bed)?;
         Ok(val)
     }
 

@@ -22,8 +22,8 @@ pub struct BedReaderNoLib {
     pub bim: DataFrame,
     pub iid_count: usize,
     pub sid_count: usize,
-    iid_idx: Vec<isize>,
-    sid_idx: Vec<isize>,
+    pub iid_idx: Vec<isize>,
+    pub sid_idx: Vec<isize>,
 }
 
 impl BedReaderNoLib {
@@ -64,7 +64,7 @@ impl ReadGenotype for BedReaderNoLib {
     type GenoDtype = f32;
     type GenoIdx = Option<Vec<isize>>;
     fn get_geno(
-        &mut self,
+        &self,
         sid: &Self::GenoIdx,
         iid: &Self::GenoIdx,
     ) -> Result<Array2<Self::GenoDtype>> {
@@ -76,7 +76,7 @@ impl ReadGenotype for BedReaderNoLib {
             Some(v) => v,
             None => &self.sid_idx,
         };
-        let shape = ShapeBuilder::set_f((sid.len(), iid.len()), false);
+        let shape = ShapeBuilder::set_f((iid.len(), sid.len()), false);
         let mut val = Array2::<f32>::default(shape);
 
         read_no_alloc(
@@ -84,8 +84,8 @@ impl ReadGenotype for BedReaderNoLib {
             self.iid_count,
             self.sid_count,
             true,
-            &sid,
             &iid,
+            &sid,
             f32::NAN,
             available_parallelism()?.get(),
             &mut val.view_mut(),
@@ -93,15 +93,15 @@ impl ReadGenotype for BedReaderNoLib {
         Ok(val)
     }
 
-    fn get_ind(&mut self, iid: &Self::GenoIdx, inv: bool) -> Result<DataFrame> {
+    fn get_ind(&self, iid: &Self::GenoIdx, inv: bool) -> Result<DataFrame> {
         if let Some(v) = iid {
-            let mask = create_mask(v, inv, &self.fam)?;
+            let mask: ChunkedArray<BooleanType> = create_mask(v, inv, &self.fam)?;
             let aa = self.fam.filter(&mask)?;
             return Ok(aa);
         }
         return Ok(self.fam.clone());
     }
-    fn get_snp(&mut self, sid: &Self::GenoIdx, inv: bool) -> Result<DataFrame> {
+    fn get_snp(&self, sid: &Self::GenoIdx, inv: bool) -> Result<DataFrame> {
         if let Some(v) = sid {
             let mask = create_mask(v, inv, &self.bim)?;
             let aa = self.bim.filter(&mask)?;
