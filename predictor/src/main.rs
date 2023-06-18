@@ -2,35 +2,44 @@ extern crate blas_src;
 
 mod join;
 mod predict;
-
-use anyhow::Result;
+mod tools;
+use clap::Parser;
 use join::match_snp;
 use polars::prelude::DataFrame;
 use predict::{cal_scores_onethread, cal_scores_par};
-use reader::{BedReaderNoLib, Beta};
-
-fn read_data(beta_path: &str, bed_path: &str) -> Result<(Beta, BedReaderNoLib)> {
-    let beta = Beta::new(beta_path)?;
-
-    let bed = BedReaderNoLib::new(bed_path)?;
-    return Ok((beta, bed));
-}
+use tools::{read_data, write_file, Args};
 
 fn main() {
-    let beta_path = "/Users/sox/Desktop/AILAB_DATA/Data/DEMO/model_demo/Weights.tsv";
-    let bed_path = "/Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/DEMO_REG";
-    let score_names = vec!["Lassosum".to_string()];
-    let batch_size = 8000;
-    let thread_num: usize = 1;
+    let cli = Args::parse();
 
-    let (beta, bed) = read_data(beta_path, bed_path).unwrap();
-    let weights = match_snp(&bed.bim, &beta, &mut score_names.clone()).unwrap();
+    let score_names = &cli.score_names;
 
-    let scores: DataFrame;
-    if thread_num == 1 {
-        scores = cal_scores_onethread(batch_size, weights, &bed, &score_names).unwrap();
+    let (beta, cols, bed) = read_data(&cli).unwrap();
+    let weights = match_snp(
+        &bed.bim,
+        &beta,
+        &mut &score_names.clone(),
+        cli.freq_flag,
+        &cols,
+    )
+    .unwrap();
+
+    let mut scores: DataFrame;
+    if cli.thread_num == 1 {
+        scores = cal_scores_onethread(cli.batch_size, weights, &bed, score_names).unwrap();
     } else {
-        scores = cal_scores_par(thread_num, batch_size, weights, bed, score_names).unwrap();
+        scores = cal_scores_par(
+            cli.thread_num,
+            cli.batch_size,
+            weights,
+            bed,
+            score_names.to_vec(),
+        )
+        .unwrap();
     }
-    dbg!("{}", scores);
+
+    let out_path = format!("{}.score.csv", &cli.out_path);
+    write_file(&out_path, &mut scores).unwrap();
+
+    println!("{}", scores);
 }

@@ -19,7 +19,7 @@ pub fn process_gt(weights: &Weights, gt: &mut Array2<f32>) -> Result<()> {
 // This function swap gt only.
 fn swap_only(swap_idx: &Vec<isize>, gt: &mut Array2<f32>) -> Result<()> {
     for i in swap_idx {
-        gt.slice_mut(s![.., *i]).mapv(|v| f32::abs(v - 2.));
+        gt.slice_mut(s![.., *i]).mapv_inplace(|v| f32::abs(v - 2.));
     }
     Ok(())
 }

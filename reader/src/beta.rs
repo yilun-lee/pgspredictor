@@ -24,6 +24,7 @@ impl Beta {
             .with_schema(Arc::new(my_schmema))
             .has_header(true)
             .finish()?;
+
         let cc = beta.shape().0;
         Ok(Beta {
             beta_path: beta_path.to_owned(),
@@ -43,20 +44,9 @@ impl Beta {
                 Field::new("ALT", DataType::Utf8),
                 Field::new("A1", DataType::Utf8),
                 Field::new(score_name, DataType::Float32),
+                Field::new("FREQ", DataType::Float32),
             ]
             .into_iter(),
         )
     }
-}
-
-fn _get_beta_schema() -> Schema {
-    Schema::from_iter(
-        vec![
-            Field::new("CHR", DataType::Utf8),
-            Field::new("POS", DataType::UInt8),
-            Field::new("A1", DataType::Utf8),
-            Field::new("SCORE", DataType::Float32),
-        ]
-        .into_iter(),
-    )
 }

@@ -48,8 +48,8 @@ fn get_bim_schema() -> Schema {
             Field::new("ID", DataType::Utf8),
             Field::new("cM", DataType::Int32),
             Field::new("POS", DataType::Int32),
-            Field::new("REF", DataType::Utf8),
             Field::new("ALT", DataType::Utf8),
+            Field::new("REF", DataType::Utf8),
         ]
         .into_iter(),
     )

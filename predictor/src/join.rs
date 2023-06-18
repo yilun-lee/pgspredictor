@@ -4,21 +4,25 @@ use polars::{
     lazy::dsl::{col, lit, when},
     prelude::{DataFrame, DataFrameJoinOps, Float32Type, IntoLazy, UniqueKeepStrategy},
 };
-use reader::Beta;
+
 pub const GOOD: &str = "Good";
 pub const SWAP: &str = "Swap";
 pub const NO_MATCH: &str = "NoMatch";
 
 /// TODO -> deal with duplicated
-pub fn match_snp<'a>(bim: &DataFrame, beta: &Beta, score_names: &Vec<String>) -> Result<Weights> {
-    let mut cand_col = vec!["CHR".to_string(), "POS".to_string(), "A1".to_string()];
-    cand_col.append(&mut score_names.clone());
-
-    let my_beta = &beta.beta.select(cand_col)?;
+pub fn match_snp(
+    bim: &DataFrame,
+    beta: &DataFrame,
+    score_names: &Vec<String>,
+    freq_flag: bool,
+    cols: &Vec<String>,
+) -> Result<Weights> {
+    let my_beta = &beta.select(cols)?;
     let weights = bim
         .select(["IDX", "CHR", "POS", "ALT", "REF"])?
         .inner_join(my_beta, ["CHR", "POS"], ["CHR", "POS"])?;
 
+    // filter weights
     let weights = weights
         .lazy()
         .with_column(
@@ -36,7 +40,7 @@ pub fn match_snp<'a>(bim: &DataFrame, beta: &Beta, score_names: &Vec<String>) ->
         )
         .collect()?;
 
-    let weights = Weights::new(weights, score_names)?;
+    let weights = Weights::new(weights, score_names, freq_flag)?;
     Ok(weights)
 }
 
@@ -51,10 +55,11 @@ pub struct Weights {
     pub beta_values: Array2<f32>,
     pub sid_idx: Vec<isize>,
     pub status_vec: StatusVec,
+    pub freq_flag: bool,
 }
 
 impl Weights {
-    fn new(weights: DataFrame, score_names: &Vec<String>) -> Result<Weights> {
+    fn new(weights: DataFrame, score_names: &Vec<String>, freq_flag: bool) -> Result<Weights> {
         // weights
         let beta_values = weights.select(score_names)?.to_ndarray::<Float32Type>()?;
         // get sid index in bfile
@@ -65,8 +70,8 @@ impl Weights {
             .map(|v| v as isize)
             .collect();
         // contain freq or not
-        let status_vec = match weights.column("FREQ") {
-            Ok(_) => {
+        let status_vec = match freq_flag {
+            true => {
                 let freq_iter = weights.column("FREQ")?.f32()?.into_iter();
                 let status_vec: Vec<(String, Option<f32>)> = weights
                     .column("STATUS")?
@@ -77,7 +82,7 @@ impl Weights {
                     .collect();
                 StatusVec::StatusFreqVec(status_vec)
             }
-            Err(_) => {
+            false => {
                 let swap_idx: Vec<isize> = weights
                     .clone()
                     .with_row_count("weight_idx", None)?
@@ -96,6 +101,7 @@ impl Weights {
             beta_values,
             sid_idx,
             status_vec,
+            freq_flag,
         })
     }
 }
