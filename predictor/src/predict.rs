@@ -1,3 +1,4 @@
+mod score;
 mod utils;
 
 use std::{sync::Arc, thread};
@@ -7,11 +8,14 @@ use crossbeam::channel::{unbounded, Receiver, Sender};
 //use ndarray::prelude::*;
 use polars::prelude::DataFrame;
 use reader::BedReaderNoLib;
-use utils::{cal_scores, get_empty_score};
+use score::cal_scores;
+use utils::get_empty_score;
+
+use crate::join::Weights;
 
 pub fn cal_scores_onethread(
     batch_size: usize,
-    weights: &DataFrame,
+    weights: Weights,
     bed: &BedReaderNoLib,
     score_names: &Vec<String>,
 ) -> Result<DataFrame> {
@@ -21,11 +25,9 @@ pub fn cal_scores_onethread(
     }
 
     let mut result = get_empty_score(score_names)?;
-    if num_batches > 1 {
-        for i in 0..num_batches {
-            let score = cal_scores(weights, i, batch_size, bed, score_names)?;
-            result = result.vstack(&score)?;
-        }
+    for i in 0..num_batches {
+        let score = cal_scores(&weights, i, batch_size, bed, score_names)?;
+        result = result.vstack(&score)?;
     }
     Ok(result)
 }
@@ -36,7 +38,7 @@ pub struct ThreadWorker {
     // re group
     pub bed: Arc<BedReaderNoLib>,
     // some config
-    pub weights: Arc<DataFrame>,
+    pub weights: Arc<Weights>,
     // recieve from main string, file path
     pub score_names: Arc<Vec<String>>,
     // send from main
@@ -45,7 +47,7 @@ pub struct ThreadWorker {
     pub sender: Sender<DataFrame>,
 }
 
-impl<'a> ThreadWorker {
+impl ThreadWorker {
     fn run(&mut self) -> Result<()> {
         loop {
             let idx = match self.receiver.recv()? {
@@ -69,7 +71,7 @@ impl<'a> ThreadWorker {
 pub fn cal_scores_par(
     thread_num: usize,
     batch_size: usize,
-    weights: DataFrame,
+    weights: Weights,
     bed: BedReaderNoLib,
     score_names: Vec<String>,
 ) -> Result<DataFrame> {

@@ -31,6 +31,7 @@ pub enum BedErrorPlus {
 
 /// All errors specific to this library.
 #[derive(Error, Debug, Clone)]
+#[allow(dead_code)]
 pub enum BedError {
     #[allow(missing_docs)]
     #[error("Ill-formed BED file. BED file header is incorrect or length is wrong. '{0}'")]

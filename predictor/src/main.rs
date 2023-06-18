@@ -5,7 +5,6 @@ mod predict;
 
 use anyhow::Result;
 use join::match_snp;
-use ndarray::s;
 use polars::prelude::DataFrame;
 use predict::{cal_scores_onethread, cal_scores_par};
 use reader::{BedReaderNoLib, Beta};
@@ -29,9 +28,9 @@ fn main() {
 
     let scores: DataFrame;
     if thread_num == 1 {
-        scores = cal_scores_onethread(batch_size, &weights, &bed, &score_names).unwrap();
+        scores = cal_scores_onethread(batch_size, weights, &bed, &score_names).unwrap();
     } else {
-        scores = cal_scores_par(5, batch_size, weights, bed, score_names).unwrap();
+        scores = cal_scores_par(thread_num, batch_size, weights, bed, score_names).unwrap();
     }
     dbg!("{}", scores);
 }

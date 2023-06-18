@@ -1,36 +1,68 @@
-use std::cmp;
-
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ndarray::prelude::*;
 use polars::{
-    lazy::dsl::{col, lit},
-    prelude::{DataFrame, DataType, Float32Type, IntoLazy, NamedFrom},
+    prelude::{DataFrame, DataType, NamedFrom},
     series::Series,
 };
-use reader::{BedReaderNoLib, ReadGenotype};
 
-use super::super::join::Swap;
+use super::super::join::SWAP;
+use crate::join::{StatusVec, Weights};
 
-fn swap_gt(weights: &DataFrame, gt: &mut Array2<f32>) -> Result<()> {
-    let swap_idx: Vec<isize> = weights
-        .clone()
-        .with_row_count("weight_idx", None)?
-        .lazy()
-        .filter(col("STATUS").eq(lit(Swap)))
-        .collect()?
-        .column("weight_idx")?
-        .u32()?
-        .into_no_null_iter()
-        .map(|v| v as isize)
-        .collect();
+pub fn process_gt(weights: &Weights, gt: &mut Array2<f32>) -> Result<()> {
+    match &weights.status_vec {
+        StatusVec::SwapIdx(v) => swap_only(v, gt)?,
+        StatusVec::StatusFreqVec(v) => swap_and_fillnan(v, gt)?,
+    };
+    Ok(())
+}
 
+// This function swap gt only.
+fn swap_only(swap_idx: &Vec<isize>, gt: &mut Array2<f32>) -> Result<()> {
     for i in swap_idx {
-        gt.slice_mut(s![.., i]).mapv(|v| f32::abs(v - 2.));
+        gt.slice_mut(s![.., *i]).mapv(|v| f32::abs(v - 2.));
+    }
+    Ok(())
+}
+// This function swap and fill na in a single walk through of weights
+fn swap_and_fillnan(
+    status_freq_vec: &Vec<(String, Option<f32>)>,
+    gt: &mut Array2<f32>,
+) -> Result<()> {
+    // https://stackoverflow.com/questions/73318562/how-to-iterate-over-two-different-series-dataframes-and-how-to-access-a-specific
+
+    let mut cc = 0;
+    for (status, freq) in status_freq_vec.into_iter() {
+        let my_fn: Box<dyn FnMut(f32) -> f32>;
+        let freq = match freq {
+            Some(v) => *v,
+            None => return Err(anyhow!("Got None in series FREQ")),
+        };
+        // we swap here and fill nan with freq
+        if status == SWAP {
+            my_fn = Box::new(|x: f32| {
+                if x.is_nan() {
+                    return freq;
+                } else {
+                    return f32::abs(x - 2.);
+                }
+            });
+        } else {
+            // if no swap -> fill nan with freq only
+            my_fn = Box::new(|x: f32| {
+                if x.is_nan() {
+                    return freq;
+                }
+                return x;
+            });
+        }
+
+        gt.slice_mut(s![.., cc]).mapv_inplace(my_fn);
+        cc += 1
     }
     Ok(())
 }
 
-fn score_to_frame(
+pub fn score_to_frame(
     fam: &DataFrame,
     score: Array2<f32>,
     score_names: &Vec<String>,
@@ -42,36 +74,6 @@ fn score_to_frame(
     }
     let score = DataFrame::new(my_columns)?;
     Ok(score)
-}
-
-pub fn cal_scores(
-    weights: &DataFrame,
-    i: usize,
-    batch_size: usize,
-    bed: &BedReaderNoLib,
-    score_names: &Vec<String>,
-) -> Result<DataFrame> {
-    let sid: Vec<isize> = weights
-        .column("IDX")?
-        .u32()?
-        .into_no_null_iter()
-        .map(|v| v as isize)
-        .collect();
-
-    let _start = i * batch_size;
-    let _end = cmp::min((i + 1) * batch_size, bed.iid_count);
-    let iid = Some(bed.iid_idx[_start.._end].to_vec());
-
-    let mut gt = bed.get_geno(&Some(sid), &iid)?;
-    let batch_fam = bed.get_ind(&iid, false)?;
-
-    let beta_values = weights.select(score_names)?.to_ndarray::<Float32Type>()?;
-
-    swap_gt(weights, &mut gt)?;
-
-    let score = gt.dot(&beta_values);
-    let score_frame = score_to_frame(&batch_fam, score, score_names)?;
-    Ok(score_frame)
 }
 
 pub fn get_empty_score(score_names: &Vec<String>) -> Result<DataFrame> {
