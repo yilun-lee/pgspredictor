@@ -7,10 +7,11 @@ edition = "2021"
 
 [dependencies]
 reader = {path = "../reader"}
-ndarray = { version = "0.15.6", features = ["rayon", "blas"] }
+ndarray = { version = "0.15.6", features = ["blas"] }
 blas-src = { version = "0.9", default-features = false,features = ["accelerate"] }
 anyhow = "1.0.71"
 polars = { version = "0.30.0", features = ["lazy", "ndarray"] }
 crossbeam = "0.8.2"
 clap = { version = "4.3.1", features = ["derive"] }
-
+serde = "1.0.163"
+serde_json="1.0.96"

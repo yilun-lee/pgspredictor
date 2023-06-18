@@ -10,5 +10,5 @@ cargo build -p predictor
     -b "/Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/DEMO_REG" \
     -o "/Users/sox/CODE/prs-predict/data/test" \
     -T 1 \
-    -n "Lassosum" -F 
+    -n "Lassosum" -n CandT -F 
 

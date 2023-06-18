@@ -1,9 +1,10 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ndarray::Array2;
 use polars::{
     lazy::dsl::{col, lit, when},
     prelude::{DataFrame, DataFrameJoinOps, Float32Type, IntoLazy, UniqueKeepStrategy},
 };
+use serde_json::json;
 
 pub const GOOD: &str = "Good";
 pub const SWAP: &str = "Swap";
@@ -15,12 +16,10 @@ pub fn match_snp(
     beta: &DataFrame,
     score_names: &Vec<String>,
     freq_flag: bool,
-    cols: &Vec<String>,
-) -> Result<Weights> {
-    let my_beta = &beta.select(cols)?;
+) -> Result<(Weights, serde_json::Value)> {
     let weights = bim
         .select(["IDX", "CHR", "POS", "ALT", "REF"])?
-        .inner_join(my_beta, ["CHR", "POS"], ["CHR", "POS"])?;
+        .inner_join(&beta, ["CHR", "POS"], ["CHR", "POS"])?;
 
     // filter weights
     let weights = weights
@@ -40,8 +39,18 @@ pub fn match_snp(
         )
         .collect()?;
 
+    // record match status
+    if weights.shape().0 == 0 {
+        return Err(anyhow!("No snp matched between models and bfile!"));
+    }
+    let match_status = json!({
+        "bfile_snp": bim.shape().0,
+        "model_snp": beta.shape().0,
+        "match_snp": weights.shape().0
+    });
+
     let weights = Weights::new(weights, score_names, freq_flag)?;
-    Ok(weights)
+    Ok((weights, match_status))
 }
 
 #[derive(Clone, Debug)]
