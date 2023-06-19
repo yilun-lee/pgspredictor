@@ -30,6 +30,45 @@ fn swap_and_fillnan(
 ) -> Result<()> {
     // https://stackoverflow.com/questions/73318562/how-to-iterate-over-two-different-series-dataframes-and-how-to-access-a-specific
 
+    let swap_fn = |x: f32| f32::abs(x - 2.);
+    let mut cc = 0;
+    for (status, freq) in status_freq_vec.into_iter() {
+        let my_fn: Box<dyn FnMut(f32) -> f32>;
+        let freq = match freq {
+            Some(v) => *v,
+            None => return Err(anyhow!("Got None in series FREQ")),
+        };
+        // we swap here and fill nan with freq
+        if status == SWAP {
+            my_fn = Box::new(|x: f32| {
+                if x.is_nan() {
+                    return freq;
+                } else {
+                    return swap_fn(x);
+                }
+            });
+        } else {
+            // if no swap -> fill nan with freq only
+            my_fn = Box::new(|x: f32| {
+                if x.is_nan() {
+                    return freq;
+                }
+                return x;
+            });
+        }
+
+        gt.slice_mut(s![.., cc]).mapv_inplace(my_fn);
+        cc += 1
+    }
+    Ok(())
+}
+
+fn swap_and_imputenan(
+    status_freq_vec: &Vec<(String, Option<f32>)>,
+    gt: &mut Array2<f32>,
+) -> Result<()> {
+    // https://stackoverflow.com/questions/73318562/how-to-iterate-over-two-different-series-dataframes-and-how-to-access-a-specific
+
     let mut cc = 0;
     for (status, freq) in status_freq_vec.into_iter() {
         let my_fn: Box<dyn FnMut(f32) -> f32>;

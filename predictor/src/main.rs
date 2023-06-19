@@ -15,8 +15,14 @@ fn main() {
 
     // load and match
     let (beta, bed) = read_data(&cli).unwrap();
-    let (weights, match_status) =
-        match_snp(&bed.bim, &beta, &mut &score_names.clone(), cli.freq_flag).unwrap();
+    let (weights, match_status) = match_snp(
+        &bed.bim,
+        &beta,
+        &mut &score_names.clone(),
+        cli.freq_flag,
+        cli.match_id_flag,
+    )
+    .unwrap();
 
     // run
     let mut scores: DataFrame;

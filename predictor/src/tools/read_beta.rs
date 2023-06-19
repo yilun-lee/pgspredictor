@@ -9,22 +9,22 @@ use polars::prelude::{DataType, Field, Schema};
 
 use super::arg::Args;
 
-fn get_schema_table(cli: &Args) -> HashMap<&String, DataType> {
+fn get_schema_table(cli: &Args) -> HashMap<&String, (&str, DataType)> {
     let mut schema_table = HashMap::new();
-    schema_table.insert(&cli.chrom, DataType::Utf8);
-    schema_table.insert(&cli.pos, DataType::Int32);
-    schema_table.insert(&cli.a1, DataType::Utf8);
+    schema_table.insert(&cli.chrom, ("CHR", DataType::Utf8));
+    schema_table.insert(&cli.pos, ("POS", DataType::Int32));
+    schema_table.insert(&cli.a1, ("A1", DataType::Utf8));
 
     for i in &cli.score_names {
-        schema_table.insert(i, DataType::Float32);
+        schema_table.insert(i, (i, DataType::Float32));
     }
 
     if cli.freq_flag {
-        schema_table.insert(&cli.freq, DataType::Float32);
+        schema_table.insert(&cli.freq, ("FREQ", DataType::Float32));
     }
 
     if cli.match_id_flag {
-        schema_table.insert(&cli.snp_id, DataType::Utf8);
+        schema_table.insert(&cli.snp_id, ("ID", DataType::Utf8));
     }
 
     schema_table
@@ -48,12 +48,12 @@ pub fn get_beta_schema(cli: &Args) -> Result<(Schema, Vec<String>)> {
     let mut field_vec = vec![];
     for i in first_line.split('\t').into_iter() {
         let k = &i.to_owned();
-        let my_datatype = match schema_table.remove(k) {
+        let (colname, my_datatype) = match schema_table.remove(k) {
             Some(v) => v.clone(),
-            None => DataType::Utf8,
+            None => (i, DataType::Utf8),
         };
 
-        field_vec.push(Field::new(i, my_datatype))
+        field_vec.push(Field::new(colname, my_datatype))
     }
 
     // check if there is some column not found

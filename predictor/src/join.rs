@@ -16,10 +16,22 @@ pub fn match_snp(
     beta: &DataFrame,
     score_names: &Vec<String>,
     freq_flag: bool,
+    match_snp_flag: bool,
 ) -> Result<(Weights, serde_json::Value)> {
-    let weights = bim
-        .select(["IDX", "CHR", "POS", "ALT", "REF"])?
-        .inner_join(&beta, ["CHR", "POS"], ["CHR", "POS"])?;
+    // match by id or chr pos
+    let weights: DataFrame;
+    let identifier_cols: Vec<String>;
+    if !match_snp_flag {
+        weights = bim
+            .select(["IDX", "CHR", "POS", "ALT", "REF"])?
+            .inner_join(&beta, ["CHR", "POS"], ["CHR", "POS"])?;
+        identifier_cols = vec!["CHR".to_string(), "POS".to_string(), "A1".to_string()];
+    } else {
+        weights = bim
+            .select(["IDX", "ID", "ALT", "REF"])?
+            .inner_join(&beta, ["ID"], ["ID"])?;
+        identifier_cols = vec!["ID".to_string(), "A1".to_string()];
+    }
 
     // filter weights
     let weights = weights
@@ -33,10 +45,7 @@ pub fn match_snp(
                 .alias("STATUS"),
         )
         .filter(col("STATUS").eq(lit(NO_MATCH)).not())
-        .unique(
-            Some(vec!["CHR".to_string(), "POS".to_string(), "A1".to_string()]),
-            UniqueKeepStrategy::First,
-        )
+        .unique(Some(identifier_cols), UniqueKeepStrategy::First)
         .collect()?;
 
     // record match status
@@ -48,7 +57,7 @@ pub fn match_snp(
         "model_snp": beta.shape().0,
         "match_snp": weights.shape().0
     });
-
+    // create weight object
     let weights = Weights::new(weights, score_names, freq_flag)?;
     Ok((weights, match_status))
 }

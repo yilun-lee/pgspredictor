@@ -2,6 +2,20 @@
 
 This is a bio-informatics tools to calculate polygenic risk score (PGS) from [pgs model weights](https://www.pgscatalog.org) and [plink bed file](https://www.cog-genomics.org/plink/1.9/formats#bed) format. The main puropose of this tool is just like [plink2 linear score](https://www.cog-genomics.org/plink/2.0/score). However, it is aimed to provided more functions than plink. For now, the tool can take care of snp matching by physical position and a1 allele, and report number of match snps. And there is also option to use provided frequency to fill missing. The tools is still working in progress.
 
+
+### Feature
+
+1. Prediction 
+2. Variant match 
+3. Variant swap
+4. Match report
+5. Custom beta format
+6. Multi-models
+7. Missing value handling
+8. Batch and multiprocessing
+9. Speed
+
+
 ### Usage
 
 You may check the usage as following:
@@ -62,9 +76,9 @@ model weights, used for predict pgs score. For more info you may check [pgs-cata
 - score-names: **float**, the weights of different algorithm. There can be multiple score name columns. You may specify them with flag like: `-n Lassosum -n LDpred2 -n CandT`.
 - freq: **float**, allele frequency. *optional* but recommended. Only needed when `--freq-flag` is specified. Missing value will be filled with the corresponding frequency. Please noted that the frequency should belong to a1 allele in the same file. Specify the column name by `--freq`.
 
-The order of the above columns can be arbitary. Other columns in the tsv will be ignored without causing any problem.
+The order of the above columns can be arbitary. Other columns in the tsv will be ignored without causing any problem. 
 
-This is an example of a beta file with two prs algo [CandT](https://www.biorxiv.org/content/10.1101/653204v2.full) and [Lassosum](https://github.com/tshmak/lassosum) and many other columns:
+This is an [example](./data/input/Weights.tsv) of a beta file with two prs algo [CandT](https://www.biorxiv.org/content/10.1101/653204v2.full) and [Lassosum](https://github.com/tshmak/lassosum) and many other columns:
 
 ```console
 CHR	POS	ID	REF	ALT	A1	Lassosum	FREQ	CandT
@@ -74,11 +88,11 @@ CHR	POS	ID	REF	ALT	A1	Lassosum	FREQ	CandT
 
 ##### BED_PATH
 
-[Plink bed file](https://www.cog-genomics.org/plink/1.9/formats#bed) format is a binary and perfomant data format storing genotype data. It is a triplet: fam, bim and [bed](https://www.cog-genomics.org/plink/2.0/input). fam file is the metadata for sample, such as sample id, phenotype and sex. bim is the metadata for snp, such as chrom, snp id. bed is the binary file containing the whole genotype matrix. The three files should share the same prefix, and `--bed-path` accept that prefix.
+[Plink bed file](https://www.cog-genomics.org/plink/1.9/formats#bed) format is a binary and perfomant data format storing genotype data. It is a triplet: fam, bim and [bed](https://www.cog-genomics.org/plink/2.0/input). fam file is the metadata for sample, such as sample id, phenotype and sex. bim is the metadata for snp, such as chrom, snp id. bed is the binary file containing the whole genotype matrix. The three files should share the same prefix, and `--bed-path` accept that prefix. Example files are in the folder [here](./data/input).
 
 ##### OUT_PATH
 
-This argument (`--out-path`) is the output prefix. For now, there are two output files: `{out_path}.check.json` and `{out_path}.score.csv`. The json recording the bfile snp number, model snp number and match snp number. The csv containing the predicted score for each individual. 
+This argument (`--out-path`) is the output prefix. For now, there are two output files: `{out_path}.check.json` and `{out_path}.score.csv`. The json recording the bfile snp number, model snp number and match snp number. The csv containing the predicted score for each individual. Example files are [here](./data/output/test.check.json) and [here](./data/output/test.score.csv). 
 
 ```bash
 cat ${out_path}.check.json
@@ -110,7 +124,15 @@ sim_03JCPNG,sim_03JCPNG,0.0,0.0
 ```
 
 
+### Todo
 
+1. Validation, the result should be better than plink2. 
+2. Two mode, model validation and model prediction model.
+3. Missing value imputation
+4. Allow to output percentile given a score distribution.
+5. Integrated with pgs catalog.
+6. Support for more genotype format.
+7. Improve and benchmark speed.
 
 ### Install
 
