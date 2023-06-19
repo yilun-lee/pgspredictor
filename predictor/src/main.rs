@@ -7,11 +7,12 @@ use clap::Parser;
 use join::match_snp;
 use polars::prelude::DataFrame;
 use predict::{cal_scores_onethread, cal_scores_par};
-use tools::{read_data, save_as_json, write_file, Args};
+use tools::{read_data, save_as_json, write_file, Args, MissingStrategy};
 
 fn main() {
     let cli = Args::parse();
     let score_names = &cli.score_names;
+    let missing_strategy = MissingStrategy::new(&cli.missing_strategy).unwrap();
 
     // load and match
     let (beta, bed) = read_data(&cli).unwrap();
@@ -19,7 +20,7 @@ fn main() {
         &bed.bim,
         &beta,
         &mut &score_names.clone(),
-        cli.freq_flag,
+        missing_strategy,
         cli.match_id_flag,
     )
     .unwrap();

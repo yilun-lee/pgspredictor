@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use clap::Parser;
 
 /// Simple program to greet a person
@@ -34,8 +35,8 @@ pub struct Args {
     pub batch_size: usize,
 
     /// Use freq to fill missing or not
-    #[arg(short = 'F', long, default_value_t = false)]
-    pub freq_flag: bool,
+    #[arg(short = 'M', long, default_value = "Impute")]
+    pub missing_strategy: String,
 
     /// if match by id
     #[arg(long, default_value_t = false)]
@@ -60,4 +61,29 @@ pub struct Args {
     /// freq column for weight file
     #[arg(long, default_value = "FREQ")]
     pub freq: String,
+}
+
+#[derive(Clone, Debug)]
+pub enum MissingStrategy {
+    Impute,
+    Zero,
+    Freq,
+}
+
+impl MissingStrategy {
+    pub fn new(strategy: &str) -> Result<MissingStrategy> {
+        let my_strategy = match strategy {
+            "Impute" => MissingStrategy::Impute,
+            "Zero" => MissingStrategy::Zero,
+            "Freq" => MissingStrategy::Freq,
+            _ => {
+                return Err(anyhow!(
+                    "Argument missing_strategy should be one of the following: [ Impute, Zero, \
+                     Freq ], got {}",
+                    strategy
+                ))
+            }
+        };
+        Ok(my_strategy)
+    }
 }

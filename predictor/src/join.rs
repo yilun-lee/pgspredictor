@@ -6,6 +6,8 @@ use polars::{
 };
 use serde_json::json;
 
+use crate::MissingStrategy;
+
 pub const GOOD: &str = "Good";
 pub const SWAP: &str = "Swap";
 pub const NO_MATCH: &str = "NoMatch";
@@ -15,7 +17,7 @@ pub fn match_snp(
     bim: &DataFrame,
     beta: &DataFrame,
     score_names: &Vec<String>,
-    freq_flag: bool,
+    missing_strategy: MissingStrategy,
     match_snp_flag: bool,
 ) -> Result<(Weights, serde_json::Value)> {
     // match by id or chr pos
@@ -58,26 +60,24 @@ pub fn match_snp(
         "match_snp": weights.shape().0
     });
     // create weight object
-    let weights = Weights::new(weights, score_names, freq_flag)?;
+    let weights = Weights::new(weights, score_names, missing_strategy)?;
     Ok((weights, match_status))
-}
-
-#[derive(Clone, Debug)]
-pub enum StatusVec {
-    SwapIdx(Vec<isize>),
-    StatusFreqVec(Vec<(String, Option<f32>)>),
 }
 
 #[derive(Clone, Debug)]
 pub struct Weights {
     pub beta_values: Array2<f32>,
     pub sid_idx: Vec<isize>,
-    pub status_vec: StatusVec,
-    pub freq_flag: bool,
+    pub status_freq_vec: Vec<(Option<String>, Option<f32>)>,
+    pub missing_strategy: MissingStrategy,
 }
 
 impl Weights {
-    fn new(weights: DataFrame, score_names: &Vec<String>, freq_flag: bool) -> Result<Weights> {
+    fn new(
+        mut weights: DataFrame,
+        score_names: &Vec<String>,
+        missing_strategy: MissingStrategy,
+    ) -> Result<Weights> {
         // weights
         let beta_values = weights.select(score_names)?.to_ndarray::<Float32Type>()?;
         // get sid index in bfile
@@ -87,39 +87,33 @@ impl Weights {
             .into_no_null_iter()
             .map(|v| v as isize)
             .collect();
-        // contain freq or not
-        let status_vec = match freq_flag {
-            true => {
-                let freq_iter = weights.column("FREQ")?.f32()?.into_iter();
-                let status_vec: Vec<(String, Option<f32>)> = weights
-                    .column("STATUS")?
-                    .utf8()?
-                    .into_no_null_iter()
-                    .map(|s| s.to_owned())
-                    .zip(freq_iter)
-                    .collect();
-                StatusVec::StatusFreqVec(status_vec)
-            }
-            false => {
-                let swap_idx: Vec<isize> = weights
-                    .clone()
-                    .with_row_count("weight_idx", None)?
-                    .lazy()
-                    .filter(col("STATUS").eq(lit(SWAP)))
-                    .collect()?
-                    .column("weight_idx")?
-                    .u32()?
-                    .into_no_null_iter()
-                    .map(|v| v as isize)
-                    .collect();
-                StatusVec::SwapIdx(swap_idx)
-            }
-        };
+        // if no freq, add freq
+        if let Err(_) = weights.column("FREQ") {
+            weights = weights
+                .lazy()
+                .with_column(lit(0. as f32).alias("FREQ"))
+                .collect()?;
+        }
+        let freq_iter = weights.column("FREQ")?.f32()?.into_iter();
+        let status_freq_vec: Vec<(Option<String>, Option<f32>)> = weights
+            .column("STATUS")?
+            .utf8()?
+            .into_iter()
+            .map(|s| {
+                match s {
+                    Some(s) => Some(s.to_owned()),
+                    None => None,
+                }
+                .to_owned()
+            })
+            .zip(freq_iter)
+            .collect();
+
         Ok(Weights {
             beta_values,
             sid_idx,
-            status_vec,
-            freq_flag,
+            status_freq_vec,
+            missing_strategy,
         })
     }
 }

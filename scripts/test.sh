@@ -5,10 +5,42 @@ hyperfine --warmup 3 -r 10 "${PLINK2}" "${RUST_PRS}"
 
 export RUST_BACKTRACE=1
 cargo build -p predictor
-./target/release/predictor \
+./target/debug/predictor \
     -m "data/input/Weights.tsv" \
     -b "data/input/test" \
     -o "data/output/test" \
-    -T 1 -B 10 \
-    -n "Lassosum" -n CandT -F 
+    -T 1 -B 5 \
+    -n "Lassosum" -n CandT -M Zero
+
+./target/debug/predictor \
+    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
+    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
+    -o /tmp/Zero \
+    -T 1 -B 4000 \
+    -n PGS000099  -M Zero
+
+./target/debug/predictor \
+    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
+    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
+    -o /tmp/Impute \
+    -T 1 -B 4000 \
+    -n PGS000099  -M Impute
+
+
+hyperfine --warmup 3 -r 10 " ./target/release/predictor \
+    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
+    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
+    -o /tmp/test \
+    -T 4 -B 2000 \
+    -n PGS000099  -M Impute " \
+    " ./target/release/predictor \
+    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
+    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
+    -o /tmp/test \
+    -T 4 -B 2000 \
+    -n PGS000099  -M Zero " \
+    "plink2 --bfile /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
+    --score /Users/sox/Desktop/AILAB_DATA/Data/model.tsv 3 6 10 header cols=+scoresums \
+    --out /tmp/test"
+
 

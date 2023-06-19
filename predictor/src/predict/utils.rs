@@ -6,95 +6,69 @@ use polars::{
 };
 
 use super::super::join::SWAP;
-use crate::join::{StatusVec, Weights};
+use crate::{join::Weights, MissingStrategy};
 
-pub fn process_gt(weights: &Weights, gt: &mut Array2<f32>) -> Result<()> {
-    match &weights.status_vec {
-        StatusVec::SwapIdx(v) => swap_only(v, gt)?,
-        StatusVec::StatusFreqVec(v) => swap_and_fillnan(v, gt)?,
-    };
-    Ok(())
-}
-
-// This function swap gt only.
-fn swap_only(swap_idx: &Vec<isize>, gt: &mut Array2<f32>) -> Result<()> {
-    for i in swap_idx {
-        gt.slice_mut(s![.., *i]).mapv_inplace(|v| f32::abs(v - 2.));
+fn missing_as_freq(freq: f32, swap_flag: bool) -> Box<dyn FnMut(f32) -> f32> {
+    if swap_flag {
+        Box::new(move |x: f32| {
+            if x.is_nan() {
+                return freq;
+            } else {
+                return 2. - x;
+            }
+        })
+    } else {
+        Box::new(move |x: f32| {
+            if x.is_nan() {
+                return freq;
+            } else {
+                return x;
+            }
+        })
     }
-    Ok(())
 }
+
 // This function swap and fill na in a single walk through of weights
-fn swap_and_fillnan(
-    status_freq_vec: &Vec<(String, Option<f32>)>,
-    gt: &mut Array2<f32>,
-) -> Result<()> {
-    // https://stackoverflow.com/questions/73318562/how-to-iterate-over-two-different-series-dataframes-and-how-to-access-a-specific
-
-    let swap_fn = |x: f32| f32::abs(x - 2.);
-    let mut cc = 0;
-    for (status, freq) in status_freq_vec.into_iter() {
-        let my_fn: Box<dyn FnMut(f32) -> f32>;
-        let freq = match freq {
-            Some(v) => *v,
-            None => return Err(anyhow!("Got None in series FREQ")),
-        };
-        // we swap here and fill nan with freq
-        if status == SWAP {
-            my_fn = Box::new(|x: f32| {
-                if x.is_nan() {
-                    return freq;
-                } else {
-                    return swap_fn(x);
-                }
-            });
-        } else {
-            // if no swap -> fill nan with freq only
-            my_fn = Box::new(|x: f32| {
-                if x.is_nan() {
-                    return freq;
-                }
-                return x;
-            });
-        }
-
-        gt.slice_mut(s![.., cc]).mapv_inplace(my_fn);
-        cc += 1
-    }
-    Ok(())
-}
-
-fn swap_and_imputenan(
-    status_freq_vec: &Vec<(String, Option<f32>)>,
-    gt: &mut Array2<f32>,
-) -> Result<()> {
+pub fn process_gt(weights: &Weights, gt: &mut Array2<f32>) -> Result<()> {
     // https://stackoverflow.com/questions/73318562/how-to-iterate-over-two-different-series-dataframes-and-how-to-access-a-specific
 
     let mut cc = 0;
-    for (status, freq) in status_freq_vec.into_iter() {
-        let my_fn: Box<dyn FnMut(f32) -> f32>;
-        let freq = match freq {
-            Some(v) => *v,
-            None => return Err(anyhow!("Got None in series FREQ")),
-        };
-        // we swap here and fill nan with freq
-        if status == SWAP {
-            my_fn = Box::new(|x: f32| {
-                if x.is_nan() {
-                    return freq;
-                } else {
-                    return f32::abs(x - 2.);
-                }
-            });
-        } else {
-            // if no swap -> fill nan with freq only
-            my_fn = Box::new(|x: f32| {
-                if x.is_nan() {
-                    return freq;
-                }
-                return x;
-            });
-        }
+    let mut freq: f32;
+    let mut my_fn: Box<dyn FnMut(f32) -> f32>;
+    let swap_identifier = &Some(SWAP.to_owned());
+    for (status, default_freq) in weights.status_freq_vec.iter() {
+        // use unwrap here since it is unliekly to be None.
+        let swap_flag = status == swap_identifier;
 
+        // deal with missing with different strategy
+        freq = match weights.missing_strategy {
+            MissingStrategy::Zero => 0.,
+            MissingStrategy::Freq => match default_freq {
+                Some(v) => *v,
+                None => return Err(anyhow!("Got None in Series FREQ")),
+            },
+            MissingStrategy::Impute => {
+                // cal non na mean
+                let (non_na_count, sum) = gt.slice(s![.., cc]).into_iter().fold(
+                    (0. as f32, 0. as f32),
+                    |(mut n, mut s), x| {
+                        if !x.is_nan() {
+                            n += 1.;
+                            s += x;
+                        }
+                        (n, s)
+                    },
+                );
+                if swap_flag {
+                    2. - (sum / non_na_count)
+                } else {
+                    sum / non_na_count
+                }
+            }
+        };
+        // function factory
+        my_fn = missing_as_freq(freq, swap_flag);
+        // apply on gt
         gt.slice_mut(s![.., cc]).mapv_inplace(my_fn);
         cc += 1
     }

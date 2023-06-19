@@ -3,7 +3,7 @@ mod read_beta;
 use std::{fs::File, sync::Arc};
 
 use anyhow::Result;
-pub use arg::Args;
+pub use arg::{Args, MissingStrategy};
 use polars::prelude::{CsvReader, CsvWriter, DataFrame, SerReader, SerWriter};
 use read_beta::get_beta_schema;
 use reader::BedReaderNoLib;
