@@ -5,8 +5,10 @@ use polars::{
     series::Series,
 };
 
-use super::super::join::SWAP;
-use crate::{join::Weights, MissingStrategy};
+use crate::{
+    join::{Weights, SWAP},
+    MissingStrategy,
+};
 
 fn missing_as_freq(freq: f32, swap_flag: bool) -> Box<dyn FnMut(f32) -> f32> {
     if swap_flag {

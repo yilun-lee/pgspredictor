@@ -1,8 +1,8 @@
 use std::cmp;
 
 use anyhow::Result;
+use genoreader::{BedReaderNoLib, ReadGenotype};
 use polars::prelude::DataFrame;
-use reader::{BedReaderNoLib, ReadGenotype};
 
 use super::utils::{process_gt, score_to_frame};
 use crate::join::Weights;

@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reader = {path = "../reader"}
+genoreader = {path = "../genoreader"}
+betareader = {path = "../betareader"}
 ndarray = { version = "0.15.6", features = ["blas"] }
 blas-src = { version = "0.9", default-features = false,features = ["accelerate"] }
 anyhow = "1.0.71"

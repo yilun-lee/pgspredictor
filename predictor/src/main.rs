@@ -1,44 +1,27 @@
 extern crate blas_src;
 
+mod args;
 mod join;
 mod predict;
-mod tools;
+mod runner;
+
+use args::Args;
 use clap::Parser;
-use join::match_snp;
-use polars::prelude::DataFrame;
-use predict::{cal_scores_onethread, cal_scores_par};
-use tools::{read_data, save_as_json, write_file, Args, MissingStrategy};
+use genoreader::BedReaderNoLib;
+
+use crate::{
+    args::MissingStrategy,
+    runner::{save_as_json, write_file, Runner},
+};
 
 fn main() {
     let cli = Args::parse();
-    let score_names = &cli.score_names;
-    let missing_strategy = MissingStrategy::new(&cli.missing_strategy).unwrap();
 
-    // load and match
-    let (beta, bed) = read_data(&cli).unwrap();
-    let (weights, match_status) = match_snp(
-        &bed.bim,
-        &beta,
-        &mut &score_names.clone(),
-        missing_strategy,
-        cli.match_id_flag,
-    )
-    .unwrap();
+    let runner = Runner::from_args(&cli).unwrap();
 
-    // run
-    let mut scores: DataFrame;
-    if cli.thread_num == 1 {
-        scores = cal_scores_onethread(cli.batch_size, weights, &bed, score_names).unwrap();
-    } else {
-        scores = cal_scores_par(
-            cli.thread_num,
-            cli.batch_size,
-            weights,
-            bed,
-            score_names.to_vec(),
-        )
-        .unwrap();
-    }
+    // read
+    let bed = BedReaderNoLib::new(&cli.bed_path).unwrap();
+    let (mut scores, match_status) = runner.run_batch_ind(bed).unwrap();
 
     // write
     let out_path = format!("{}.check.json", &cli.out_path);

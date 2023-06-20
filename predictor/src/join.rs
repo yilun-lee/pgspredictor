@@ -12,14 +12,23 @@ pub const GOOD: &str = "Good";
 pub const SWAP: &str = "Swap";
 pub const NO_MATCH: &str = "NoMatch";
 
+pub struct MatchStatus {
+    bfile_snp: usize,
+    model_snp: usize,
+    match_snp: usize,
+}
+
 /// TODO -> deal with duplicated
 pub fn match_snp(
+    cols: &Vec<String>,
     bim: &DataFrame,
-    beta: &DataFrame,
+    mut beta: DataFrame,
     score_names: &Vec<String>,
     missing_strategy: MissingStrategy,
     match_snp_flag: bool,
 ) -> Result<(Weights, serde_json::Value)> {
+    // extract beta
+    beta = beta.select(cols)?;
     // match by id or chr pos
     let weights: DataFrame;
     let identifier_cols: Vec<String>;

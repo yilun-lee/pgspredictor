@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use betareader::BetaArg;
 use clap::Parser;
 
 /// Simple program to greet a person
@@ -85,5 +86,42 @@ impl MissingStrategy {
             }
         };
         Ok(my_strategy)
+    }
+}
+
+pub struct MetaArg<'a> {
+    pub score_names: &'a Vec<String>,
+    pub batch_size: usize,
+    pub thread_num: usize,
+    pub match_id_flag: bool,
+    pub missing_strategy: MissingStrategy,
+}
+
+impl Args {
+    /// Convert [Args] into [BetaArg] and [MetaArg]
+    /// [BetaArg] is for reading of beta from [betareader]
+    pub fn into_struct(&self) -> Result<(BetaArg, MetaArg)> {
+        let missing_strategy = MissingStrategy::new(&self.missing_strategy)?;
+        let beta_arg = BetaArg {
+            chrom: &self.chrom,
+            pos: &self.pos,
+            a1: &self.a1,
+            freq: &self.freq,
+            snp_id: &self.snp_id,
+            score_names: &self.score_names,
+            weight_path: &self.weight_path,
+            need_freq: matches!(missing_strategy, MissingStrategy::Freq),
+            need_id: self.match_id_flag,
+        };
+        let meta_arg = MetaArg {
+            score_names: &self.score_names,
+            batch_size: self.batch_size,
+            thread_num: self.thread_num,
+            match_id_flag: self.match_id_flag,
+            missing_strategy: missing_strategy,
+        };
+        // bed_path and out_path are still only in self, they should not belong to meta
+        // and they should only be access in main
+        Ok((beta_arg, meta_arg))
     }
 }

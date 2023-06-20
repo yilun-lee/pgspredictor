@@ -12,19 +12,6 @@ cargo build -p predictor
     -T 1 -B 5 \
     -n "Lassosum" -n CandT -M Zero
 
-./target/debug/predictor \
-    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
-    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
-    -o /tmp/Zero \
-    -T 1 -B 4000 \
-    -n PGS000099  -M Zero
-
-./target/debug/predictor \
-    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
-    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
-    -o /tmp/Impute \
-    -T 1 -B 4000 \
-    -n PGS000099  -M Impute
 
 
 hyperfine --warmup 3 -r 10 " ./target/release/predictor \
