@@ -42,7 +42,7 @@ impl BedReaderNoLib {
         let iid_count = fam.shape().0;
         let sid_count = bim.shape().0;
 
-        let aa = sid_count as isize;
+        let aa = iid_count as isize;
         let iid_all: Vec<isize> = (0..aa).collect();
 
         let aa = sid_count as isize;

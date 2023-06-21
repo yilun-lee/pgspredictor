@@ -7,31 +7,36 @@ use genoreader::BedReaderNoLib;
 use polars::prelude::DataFrame;
 
 use crate::{
+    args::MetaArg,
     join::Weights,
     predict::{cal_scores, get_empty_score},
 };
 
 pub fn cal_score_batch_ind_single(
-    thread_num: usize,
-    batch_size: usize,
+    meta_arg: &MetaArg,
     weights: Weights,
     bed: BedReaderNoLib,
-    score_names: &Vec<String>,
 ) -> Result<DataFrame> {
-    let mut num_batches = bed.iid_count / batch_size;
-    if bed.iid_count % batch_size > 0 {
+    let mut num_batches = bed.iid_count / meta_arg.batch_size;
+    if bed.iid_count % meta_arg.batch_size > 0 {
         num_batches += 1
     }
 
-    let mut result = get_empty_score(&score_names)?;
+    let mut result = get_empty_score(&meta_arg.score_names)?;
     for i in 0..num_batches {
-        let score = cal_scores(&weights, i, batch_size, &bed, &score_names)?;
+        let score = cal_scores(
+            &weights,
+            i,
+            meta_arg.batch_size,
+            &bed,
+            &meta_arg.score_names,
+        )?;
         result = result.vstack(&score)?;
     }
     Ok(result)
 }
 
-pub struct ThreadWorker {
+struct ThreadWorkerBatchInd {
     // batch size
     pub batch_size: usize,
     // re group
@@ -46,7 +51,7 @@ pub struct ThreadWorker {
     pub sender: Sender<DataFrame>,
 }
 
-impl ThreadWorker {
+impl ThreadWorkerBatchInd {
     fn run(&mut self) -> Result<()> {
         loop {
             let idx = match self.receiver.recv()? {
@@ -68,11 +73,9 @@ impl ThreadWorker {
 }
 
 pub fn cal_score_batch_ind_par(
-    thread_num: usize,
-    batch_size: usize,
+    meta_arg: &MetaArg,
     weights: Weights,
     bed: BedReaderNoLib,
-    score_names: &Vec<String>,
 ) -> Result<DataFrame> {
     let (input_sender, input_receiver) = unbounded();
     let (output_sender, output_receiver) = unbounded();
@@ -80,11 +83,11 @@ pub fn cal_score_batch_ind_par(
     // init worker
     let weights = Arc::new(weights);
     let bed = Arc::new(bed.clone());
-    let score_names = Arc::new(score_names.clone());
+    let score_names = Arc::new(meta_arg.score_names.clone());
 
-    for _ in 0..thread_num {
-        let mut my_worker = ThreadWorker {
-            batch_size: batch_size,
+    for _ in 0..meta_arg.thread_num {
+        let mut my_worker = ThreadWorkerBatchInd {
+            batch_size: meta_arg.batch_size,
             bed: bed.clone(),
             weights: weights.clone(),
             score_names: score_names.clone(),
@@ -98,15 +101,15 @@ pub fn cal_score_batch_ind_par(
     drop(output_sender);
 
     // send to worker
-    let mut num_batches = bed.iid_count / batch_size;
-    if bed.iid_count % batch_size > 0 {
+    let mut num_batches = bed.iid_count / meta_arg.batch_size;
+    if bed.iid_count % meta_arg.batch_size > 0 {
         num_batches += 1
     }
     for i in 0..num_batches {
         input_sender.send(Some(i)).unwrap();
     }
     // turn off worker
-    for _ in 0..thread_num {
+    for _ in 0..meta_arg.thread_num {
         input_sender.send(None).unwrap();
     }
 

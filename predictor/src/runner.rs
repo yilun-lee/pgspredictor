@@ -6,13 +6,13 @@ use std::fs::File;
 use anyhow::Result;
 use betareader::BetaArg;
 use genoreader::BedReaderNoLib;
-pub use ind_batch::{cal_score_batch_ind_par, cal_score_batch_ind_single};
+use ind_batch::{cal_score_batch_ind_par, cal_score_batch_ind_single};
 use polars::prelude::{CsvWriter, DataFrame, SerWriter};
-use serde_json::Value;
+use snp_batch::{cal_score_batch_snp_par, cal_score_batch_snp_single};
 
 use crate::{
     args::{Args, MetaArg},
-    join::match_snp,
+    join::{match_snp, MatchStatus},
 };
 
 pub struct Runner<'a> {
@@ -27,41 +27,36 @@ impl Runner<'_> {
         Ok(Runner { beta_arg, meta_arg })
     }
 
-    pub fn run_batch_ind(&self, bed: BedReaderNoLib) -> Result<(DataFrame, Value)> {
+    pub fn run_batch_ind(&self, bed: BedReaderNoLib) -> Result<(DataFrame, MatchStatus)> {
         let (beta, cols) = self.beta_arg.read()?;
-        let (weights, match_status) = match_snp(
-            &cols,
-            &bed.bim,
-            beta,
-            &self.meta_arg.score_names,
-            self.meta_arg.missing_strategy.clone(),
-            self.meta_arg.match_id_flag,
-        )?;
+        let (weights, match_status) = match_snp(&self.meta_arg, &cols, &bed.bim, beta)?;
 
         // run
-        let scores: DataFrame;
+        let score_frame: DataFrame;
         if self.meta_arg.thread_num == 1 {
-            scores = cal_score_batch_ind_single(
-                self.meta_arg.thread_num,
-                self.meta_arg.batch_size,
-                weights,
-                bed,
-                self.meta_arg.score_names,
-            )?;
+            score_frame = cal_score_batch_ind_single(&self.meta_arg, weights, bed)?;
         } else {
-            scores = cal_score_batch_ind_par(
-                self.meta_arg.thread_num,
-                self.meta_arg.batch_size,
-                weights,
-                bed,
-                self.meta_arg.score_names,
-            )?;
+            score_frame = cal_score_batch_ind_par(&self.meta_arg, weights, bed)?;
         }
-        Ok((scores, match_status))
+        Ok((score_frame, match_status))
+    }
+
+    pub fn run_batch_snp(&self, bed: BedReaderNoLib) -> Result<(DataFrame, MatchStatus)> {
+        let (beta_batch_reader, cols) = self.beta_arg.batch_read(self.meta_arg.batch_size)?;
+
+        let score_frame: DataFrame;
+        let match_status: MatchStatus;
+        if self.meta_arg.thread_num == 1 {
+            (score_frame, match_status) =
+                cal_score_batch_snp_single(&self.meta_arg, cols, beta_batch_reader, bed)?;
+        } else {
+            (score_frame, match_status) =
+                cal_score_batch_snp_par(&self.meta_arg, cols, beta_batch_reader, bed)?;
+        }
+        Ok((score_frame, match_status))
     }
 }
 
-fn snp_batch_runner() {}
 pub fn write_file(out_path: &str, scores: &mut DataFrame) -> Result<()> {
     let out_path: File = File::create(out_path).unwrap();
     CsvWriter::new(out_path).has_header(true).finish(scores)?;

@@ -43,6 +43,10 @@ pub struct Args {
     #[arg(long, default_value_t = false)]
     pub match_id_flag: bool,
 
+    /// whether to batch by snp, default is batch by ind
+    #[arg(long, default_value_t = false)]
+    pub batch_snp: bool,
+
     /// chromosome column for weight file
     #[arg(long, default_value = "CHR")]
     pub chrom: String,
@@ -64,7 +68,7 @@ pub struct Args {
     pub freq: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub enum MissingStrategy {
     Impute,
     Zero,

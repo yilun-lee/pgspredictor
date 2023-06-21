@@ -14,18 +14,36 @@ cargo build -p predictor
 
 
 
-hyperfine --warmup 3 -r 10 " ./target/release/predictor \
+cargo build -p predictor -r 
+./target/debug/predictor \
     -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
     -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
     -o /tmp/test \
     -T 4 -B 2000 \
-    -n PGS000099  -M Impute " \
+    -n PGS000099  -M Impute --batch-snp
+
+
+hyperfine --warmup 3 -r 10 \
+    "./target/release/predictor \
+    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
+    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
+    -o /tmp/test \
+    -T 4 -B 2000 \
+    -n PGS000099  -M Impute --batch-snp
+    " \
+    "./target/release/predictor \
+    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
+    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
+    -o /tmp/test \
+    -T 1 -B 8000 \
+    -n PGS000099  -M Impute --batch-snp
+    " \
     " ./target/release/predictor \
     -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
     -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
     -o /tmp/test \
     -T 4 -B 2000 \
-    -n PGS000099  -M Zero " \
+    -n PGS000099  -M Impute " \
     "plink2 --bfile /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
     --score /Users/sox/Desktop/AILAB_DATA/Data/model.tsv 3 6 10 header cols=+scoresums \
     --out /tmp/test"

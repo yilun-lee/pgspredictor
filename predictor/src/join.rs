@@ -1,38 +1,60 @@
+use std::ops::Add;
+
 use anyhow::{anyhow, Result};
 use ndarray::Array2;
 use polars::{
     lazy::dsl::{col, lit, when},
     prelude::{DataFrame, DataFrameJoinOps, Float32Type, IntoLazy, UniqueKeepStrategy},
 };
-use serde_json::json;
+use serde::Serialize;
 
-use crate::MissingStrategy;
+use crate::{args::MetaArg, MissingStrategy};
 
 pub const GOOD: &str = "Good";
 pub const SWAP: &str = "Swap";
 pub const NO_MATCH: &str = "NoMatch";
 
+#[derive(Debug, Serialize, Clone)]
 pub struct MatchStatus {
     bfile_snp: usize,
     model_snp: usize,
     match_snp: usize,
 }
 
+impl MatchStatus {
+    pub fn new_empty() -> MatchStatus {
+        MatchStatus {
+            bfile_snp: 0,
+            model_snp: 0,
+            match_snp: 0,
+        }
+    }
+}
+
+impl Add for MatchStatus {
+    type Output = MatchStatus;
+    fn add(self, another: MatchStatus) -> MatchStatus {
+        MatchStatus {
+            bfile_snp: another.bfile_snp,
+            model_snp: self.model_snp + another.model_snp,
+            match_snp: self.match_snp + another.match_snp,
+        }
+    }
+}
+
 /// TODO -> deal with duplicated
 pub fn match_snp(
+    meta_arg: &MetaArg,
     cols: &Vec<String>,
     bim: &DataFrame,
     mut beta: DataFrame,
-    score_names: &Vec<String>,
-    missing_strategy: MissingStrategy,
-    match_snp_flag: bool,
-) -> Result<(Weights, serde_json::Value)> {
+) -> Result<(Weights, MatchStatus)> {
     // extract beta
     beta = beta.select(cols)?;
     // match by id or chr pos
     let weights: DataFrame;
     let identifier_cols: Vec<String>;
-    if !match_snp_flag {
+    if !meta_arg.match_id_flag {
         weights = bim
             .select(["IDX", "CHR", "POS", "ALT", "REF"])?
             .inner_join(&beta, ["CHR", "POS"], ["CHR", "POS"])?;
@@ -63,13 +85,13 @@ pub fn match_snp(
     if weights.shape().0 == 0 {
         return Err(anyhow!("No snp matched between models and bfile!"));
     }
-    let match_status = json!({
-        "bfile_snp": bim.shape().0,
-        "model_snp": beta.shape().0,
-        "match_snp": weights.shape().0
-    });
+    let match_status = MatchStatus {
+        bfile_snp: bim.shape().0,
+        model_snp: beta.shape().0,
+        match_snp: weights.shape().0,
+    };
     // create weight object
-    let weights = Weights::new(weights, score_names, missing_strategy)?;
+    let weights = Weights::new(weights, meta_arg.score_names, meta_arg.missing_strategy)?;
     Ok((weights, match_status))
 }
 
