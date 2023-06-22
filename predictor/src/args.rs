@@ -35,15 +35,16 @@ pub struct Args {
     #[arg(short = 'B', long, default_value_t = 10000)]
     pub batch_size: usize,
 
-    /// Use freq to fill missing or not
+    /// Strategy to deal with missing value in genotype. Should be one of the
+    /// following: Freq, Impute and Zero
     #[arg(short = 'M', long, default_value = "Impute")]
     pub missing_strategy: String,
 
-    /// if match by id
+    /// whether to match by id
     #[arg(long, default_value_t = false)]
     pub match_id_flag: bool,
 
-    /// if show log
+    /// whether show log
     #[arg(long, default_value_t = false)]
     pub verbose: bool,
 
@@ -51,7 +52,7 @@ pub struct Args {
     #[arg(long, default_value_t = false)]
     pub batch_snp: bool,
 
-    /// if output percentile and rank
+    /// whether output percentile and rank
     #[arg(short = 'P', long, default_value_t = false)]
     pub percentile_flag: bool,
 

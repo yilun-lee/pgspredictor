@@ -16,6 +16,7 @@ Cargo.lock
 *.pdb
 
 .vscode/
+.DS_Store
 
 # for tmp file
 tmp/

@@ -5,15 +5,32 @@ This is a bio-informatics tools to calculate polygenic risk score (PGS) from [pg
 
 ### Feature
 
-1. Prediction 
-2. Variant match 
-3. Variant swap
-4. Match report
-5. Custom beta format
-6. Multi-models
-7. Batch and multiprocessing
-8. Speed
+We often use [plink](https://www.cog-genomics.org/plink) to calculate pgs, which is very fast and handy. However, plink only take care of the prediction for one model with swap and missing strategy. For a pgs pipeline, we requested for more features. 
 
+##### SNP joining and duplication handling
+
+First is the join of snp between genotype file and weights. Plink only care about the snp id. Here, we used CHR and POS and A1 to match snp, so the uses don't need to care about them beforehand. Moreover, we also deal with duplicated snp, which plink often ignored or raised error. Unlike plink use column index to fetch ID, A1 and weights, user-defined column names are accepted.
+
+##### Multiple models and percentils
+
+There may be multiple pgs model for inference on the same genotype. In plink, the solution is to write a bash script with loop. **pgs-predictor-rs** can infer multiple models at the same times. In addition to scores, **pgs-predictor-rs** output percentils, rank and match status, which will be very beneficial in the downstream analyis. Last but not the least, user can provided score distribution from reference population, **pgs-predictor-rs** can calulate percentile of the score of the predicted against reference population (WIP feature).
+
+##### Batch and multiprocessing
+
+User can set batch size and number of thread for the program. Batch can be applied on sample axis or snp axis depending on your data. For genotype and weights that can fit into memory, multi-threading can help you to accelerate the whole program. For weights larger then memory, you can run batch along snp. Otherwise, for larger genotype, which is rare, you may run batch along sample. Multi-threading is still beneficial in such circumstance. **pgs-predictor-rs** can run faster (>5 times) than plink with proper combination of parametes even when there is only one model. 
+
+
+### Pipeline
+
+The following pipeline is how **pgs-predictor-rs** predict pgs from weights and genotype.
+
+1. Read Bfile and Beta
+2. Join Bfile and Beta (by CHR, POS, A1 or by ID, A1) and report match status.
+3. Make predictions (There are three things doing here)
+   1. Swap snp if needed.
+   2. Fill missing genotype with strategy specified by user.
+   3. Dot Genotypes and weights to get pgs score.
+4. Save results and calculate rank and percentile if specified. 
 
 ### Usage
 
@@ -26,27 +43,31 @@ predictor -h
 ```console
 A pgs predictor written in rust
 
-Usage: predictor [OPTIONS] --weight-path <WEIGHT_PATH> --bed-path <BED_PATH> --out-path <OUT_PATH>
+Usage: predictor [OPTIONS] --weight-path <WEIGHT_PATH> --bed-path <BED_PATH> --out-prefix <OUT_PREFIX>
 
 Options:
   -m, --weight-path <WEIGHT_PATH>
           weight path, should be a tsv file
   -b, --bed-path <BED_PATH>
           path to plink bed files
-  -o, --out-path <OUT_PATH>
+  -o, --out-prefix <OUT_PREFIX>
           output prefix
   -n, --score-names <SCORE_NAMES>
           score names: scores to be process
   -T, --thread-num <THREAD_NUM>
           number of thread to run [default: 1]
   -B, --batch-size <BATCH_SIZE>
-          batch size for sample [default: 10000]
+          batch size for sample / or snp if batch-snp flag is set [default: 10000]
   -M, --missing-strategy <MISSING_STRATEGY>
           Use freq to fill missing or not [default: Impute]
       --match-id-flag
-          if match by id
+          whether to match by id
+      --verbose
+          whether to show log
       --batch-snp
           whether to batch by snp, default is batch by ind
+  -P, --percentile-flag
+          if output percentile and rank
       --chrom <CHROM>
           chromosome column for weight file [default: CHR]
       --pos <POS>
@@ -92,7 +113,7 @@ CHR	POS	ID	REF	ALT	A1	Lassosum	FREQ	CandT
 
 ##### OUT_PATH
 
-This argument (`--out-path`) is the output prefix. For now, there are two output files: `{out_path}.check.json` and `{out_path}.score.csv`. The json recording the bfile snp number, model snp number and match snp number. The csv containing the predicted score for each individual. Example files are [here](./data/output/test.check.json) and [here](./data/output/test.score.csv). 
+This argument (`--out-path`) is the output prefix. For now, there are two output files: `{out_path}.check.json` and `{out_path}.score.csv`. The json recording the bfile snp number, model snp number and match snp number. The csv containing the predicted score for each individual. Example files are [here](./data/output/test.check.json) and [here](./data/output/test.score.csv). If `-P` or `--percentile-flag` is specified, two additional files will be produced: `{out_path}.percentiles.csv` and `{out_path}.rank.csv`. Example files are in the same [folder](./data/output/) `{out_path}.percentiles.csv` is the percentiles for each sample from the predicted population or reference popluation if score distribution, or rank, from reference popluation is provided. Rank is the 0-100 quantils for the score distribtuion, used as refernce for other model to make predictions (WIP).
 
 ```bash
 cat ${out_path}.check.json
@@ -123,6 +144,15 @@ sim_03D1RGH,sim_03D1RGH,0.0,0.0
 sim_03JCPNG,sim_03JCPNG,0.0,0.0
 ```
 
+##### missing strategy 
+
+User can specifeid how program handle missing genotype through `-M` or `--missing-strategy` flag. There are three strategy for now:
+1. **Freq**: Use frequency column in weights (`FREQ` as default, can be specified by `--freq`) to fill the misisng.  This strategy is recommended for prediction. 
+2. **Impute**: Impute frequency of the current population to fill the misisng. Recommended for validation. Not recommended for small population. 
+3. **Zero**: Fill missing with zeors. Not recommended.
+
+
+
 ##### Quick Example
 
 This is a simple exaple using very small bfile and weights. You may check the output files in [data/output](./data/output/) 
@@ -136,15 +166,20 @@ This is a simple exaple using very small bfile and weights. You may check the ou
     -n "Lassosum" -n CandT -M Impute
 ```
 
+
 ### Todo
 
 1. Validation, the result should be better than plink2. 
-2. Two mode, model validation and model prediction model.
-3. Missing value imputation
-4. Allow to output percentile given a score distribution.
-5. Integrated with pgs catalog.
-6. Support for more genotype format.
-7. Improve and benchmark speed.
+2. Validation and Prediction mode
+   1. Allow to calculate percentile given a score distribution.
+   2. Output beta files in validation mode 
+   3. Performance evaluation 
+3. Integrated with pgs catalog.
+4. Support for more genotype format.
+5. Improve and benchmark speed.
+6. Remove missing value in beta file
+7. CICD for testing and distributing
+
 
 ### Install
 
