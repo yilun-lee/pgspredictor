@@ -11,9 +11,8 @@ This is a bio-informatics tools to calculate polygenic risk score (PGS) from [pg
 4. Match report
 5. Custom beta format
 6. Multi-models
-7. Missing value handling
-8. Batch and multiprocessing
-9. Speed
+7. Batch and multiprocessing
+8. Speed
 
 
 ### Usage
@@ -42,10 +41,12 @@ Options:
           number of thread to run [default: 1]
   -B, --batch-size <BATCH_SIZE>
           batch size for sample [default: 10000]
-  -F, --freq-flag
-          Use freq to fill missing or not
+  -M, --missing-strategy <MISSING_STRATEGY>
+          Use freq to fill missing or not [default: Impute]
       --match-id-flag
           if match by id
+      --batch-snp
+          whether to batch by snp, default is batch by ind
       --chrom <CHROM>
           chromosome column for weight file [default: CHR]
       --pos <POS>
@@ -60,7 +61,6 @@ Options:
           Print help
   -V, --version
           Print version
-
 ```
 
 There are three required arguments: `--weight-path <WEIGHT_PATH> --bed-path <BED_PATH> --out-path <OUT_PATH>` 
@@ -74,7 +74,7 @@ model weights, used for predict pgs score. For more info you may check [pgs-cata
 - snp-id: **string**, snp identifier, *optional*, needed only when `--match-id-flag` is specified. Specify the column name by `--snp-id`.
 - a1: **string**, effected allele for weight. Specify the column name by `--a1`.
 - score-names: **float**, the weights of different algorithm. There can be multiple score name columns. You may specify them with flag like: `-n Lassosum -n LDpred2 -n CandT`.
-- freq: **float**, allele frequency. *optional* but recommended. Only needed when `--freq-flag` is specified. Missing value will be filled with the corresponding frequency. Please noted that the frequency should belong to a1 allele in the same file. Specify the column name by `--freq`.
+- freq: **float**, allele frequency. *optional* but recommended. Only needed when `--missing-strategy` is `Freq`. Missing value will be filled with the corresponding frequency. Please noted that the frequency should belong to a1 allele in the same file. Specify the column name by `--freq`.
 
 The order of the above columns can be arbitary. Other columns in the tsv will be ignored without causing any problem. 
 
@@ -123,6 +123,18 @@ sim_03D1RGH,sim_03D1RGH,0.0,0.0
 sim_03JCPNG,sim_03JCPNG,0.0,0.0
 ```
 
+##### Quick Example
+
+This is a simple exaple using very small bfile and weights. You may check the output files in [data/output](./data/output/) 
+
+```bash
+./target/release/predictor \
+    -m "data/input/Weights.tsv" \
+    -b "data/input/test" \
+    -o "data/output/test" \
+    -T 1 -B 5 \
+    -n "Lassosum" -n CandT -M Impute
+```
 
 ### Todo
 
@@ -137,7 +149,7 @@ sim_03JCPNG,sim_03JCPNG,0.0,0.0
 ### Install
 
 Currently, use cargo build.
-The development environment os on mac, so the blas-src is **accelerate**, feel free to change it in [reader cargo.toml](./reader/Cargo.toml). and [predictor cargo.toml](./predictor/Cargo.toml).
+The development environment os on mac, so the [blas-src](https://github.com/blas-lapack-rs/blas-src) is **accelerate**, feel free to change it in [reader cargo.toml](./reader/Cargo.toml). and [predictor cargo.toml](./predictor/Cargo.toml).
 
 ```bash 
 # clone

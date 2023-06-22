@@ -13,11 +13,13 @@ cargo build -p predictor
     -n "Lassosum" -n CandT -M Zero
 
 
+BFILE="/Users/sox/Desktop/AILAB_DATA/Data/CLU_DATA/rename"
+MODEL="/Users/sox/Desktop/AILAB_DATA/Data/PGS000099.tsv"
 
 cargo build -p predictor -r 
 ./target/debug/predictor \
-    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
-    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
+    -m ${MODEL} \
+    -b ${BFILE} \
     -o /tmp/test \
     -T 4 -B 2000 \
     -n PGS000099  -M Impute --batch-snp
@@ -25,27 +27,50 @@ cargo build -p predictor -r
 
 hyperfine --warmup 3 -r 10 \
     "./target/release/predictor \
-    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
-    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
+    -m ${MODEL} \
+    -b ${BFILE} \
     -o /tmp/test \
-    -T 4 -B 2000 \
+    -T 6 -B 2000 \
     -n PGS000099  -M Impute --batch-snp
     " \
     "./target/release/predictor \
-    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
-    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
+    -m ${MODEL} \
+    -b ${BFILE} \
     -o /tmp/test \
-    -T 1 -B 8000 \
+    -T 1 -B 16000 \
     -n PGS000099  -M Impute --batch-snp
     " \
     " ./target/release/predictor \
-    -m /Users/sox/Desktop/AILAB_DATA/Data/model.tsv \
-    -b /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
+    -m ${MODEL} \
+    -b ${BFILE} \
     -o /tmp/test \
-    -T 4 -B 2000 \
+    -T 6 -B 2000 \
     -n PGS000099  -M Impute " \
-    "plink2 --bfile /Users/sox/Desktop/AILAB_DATA/Data/DEMO/DEMO_REG/rename \
-    --score /Users/sox/Desktop/AILAB_DATA/Data/model.tsv 3 6 10 header cols=+scoresums \
+    " ./target/release/predictor \
+    -m ${MODEL} \
+    -b ${BFILE} \
+    -o /tmp/test \
+    -T 1 -B 16000 \
+    -n PGS000099  -M Impute " \
+    "plink2 --bfile ${BFILE} \
+    --score ${MODEL} 3 6 10 header cols=+scoresums ignore-dup-ids\
     --out /tmp/test"
 
+
+
+hyperfine --warmup 3 -r 10 \
+    "./target/release/predictor \
+    -m ${MODEL} \
+    -b ${BFILE} \
+    -o /tmp/test \
+    -T 1 -B 13000 \
+    -n PGS000099  -M Impute --batch-snp
+    " \
+    "./target/release/predictor \
+    -m ${MODEL} \
+    -b ${BFILE} \
+    -o /tmp/test \
+    -T 6 -B 2000 \
+    -n PGS000099  -M Impute --batch-snp --percentile-flag
+    " 
 

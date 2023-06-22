@@ -1,3 +1,4 @@
+pub mod rank;
 mod score;
 mod utils;
 

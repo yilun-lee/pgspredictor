@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use betareader::BetaArg;
 use clap::Parser;
 
-/// Simple program to greet a person
+/// Command argument
 #[derive(Parser, Debug)]
 #[command(
     name = "pgspredictor.rs", 
@@ -21,7 +21,7 @@ pub struct Args {
 
     /// output prefix
     #[arg(short, long)]
-    pub out_path: String,
+    pub out_prefix: String,
 
     /// score names: scores to be process
     #[arg(short = 'n', long)]
@@ -31,7 +31,7 @@ pub struct Args {
     #[arg(short = 'T', long, default_value_t = 1)]
     pub thread_num: usize,
 
-    /// batch size for sample
+    /// batch size for sample / or snp if batch-snp flag is set.
     #[arg(short = 'B', long, default_value_t = 10000)]
     pub batch_size: usize,
 
@@ -43,9 +43,17 @@ pub struct Args {
     #[arg(long, default_value_t = false)]
     pub match_id_flag: bool,
 
+    /// if show log
+    #[arg(long, default_value_t = false)]
+    pub verbose: bool,
+
     /// whether to batch by snp, default is batch by ind
     #[arg(long, default_value_t = false)]
     pub batch_snp: bool,
+
+    /// if output percentile and rank
+    #[arg(short = 'P', long, default_value_t = false)]
+    pub percentile_flag: bool,
 
     /// chromosome column for weight file
     #[arg(long, default_value = "CHR")]
@@ -105,7 +113,18 @@ impl Args {
     /// Convert [Args] into [BetaArg] and [MetaArg]
     /// [BetaArg] is for reading of beta from [betareader]
     pub fn into_struct(&self) -> Result<(BetaArg, MetaArg)> {
+        // some check
         let missing_strategy = MissingStrategy::new(&self.missing_strategy)?;
+        if matches!(missing_strategy, MissingStrategy::Impute) && !self.batch_snp {
+            warn!(
+                "It is recommended to specify --batch-snp with --missing-strategy \"Impute\". \
+                 Since batching on sample cannot calculate complete freq informations. Or you can \
+                 use batch larger then sample size."
+            )
+        }
+        debug!("Model: {}", &self.weight_path);
+        debug!("Bfile: {}", &self.bed_path);
+
         let beta_arg = BetaArg {
             chrom: &self.chrom,
             pos: &self.pos,

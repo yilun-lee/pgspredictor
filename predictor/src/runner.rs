@@ -1,13 +1,16 @@
-mod ind_batch;
-mod snp_batch;
+//! This script contain runner that run prediction for bed files with model
+//! It depends [crate::join] and [crate::predict] and run prediction in
+//! parallel/single thread wtih batch on snp / ind.
 
-use std::fs::File;
+mod ind_batch;
+pub mod post;
+mod snp_batch;
 
 use anyhow::Result;
 use betareader::BetaArg;
 use genoreader::BedReaderNoLib;
 use ind_batch::{cal_score_batch_ind_par, cal_score_batch_ind_single};
-use polars::prelude::{CsvWriter, DataFrame, SerWriter};
+use polars::prelude::DataFrame;
 use snp_batch::{cal_score_batch_snp_par, cal_score_batch_snp_single};
 
 use crate::{
@@ -15,21 +18,31 @@ use crate::{
     join::{match_snp, MatchStatus},
 };
 
+/// The [Runner] struct. Basically from [Args]. [BetaArg] is for argument to
+/// load weights. [MetaArg] is runner argument such as batch_size.
 pub struct Runner<'a> {
     beta_arg: BetaArg<'a>,
     meta_arg: MetaArg<'a>,
 }
 
 impl Runner<'_> {
+    /// Init from [Args]
     pub fn from_args(cli: &Args) -> Result<Runner> {
         let (beta_arg, meta_arg) = cli.into_struct()?;
 
         Ok(Runner { beta_arg, meta_arg })
     }
 
+    /// Run batch on sample axis. For single thread ->
+    /// [cal_score_batch_ind_single]. For multithread ->
+    /// [cal_score_batch_ind_par]
     pub fn run_batch_ind(&self, bed: BedReaderNoLib) -> Result<(DataFrame, MatchStatus)> {
         let (beta, cols) = self.beta_arg.read()?;
         let (weights, match_status) = match_snp(&self.meta_arg, &cols, &bed.bim, beta)?;
+        info!(
+            "Successful load model. Match {}/{} of snp",
+            match_status.match_snp, match_status.model_snp,
+        );
 
         // run
         let score_frame: DataFrame;
@@ -41,6 +54,9 @@ impl Runner<'_> {
         Ok((score_frame, match_status))
     }
 
+    /// Run batch on snp axis. For single thread ->
+    /// [cal_score_batch_snp_single]. For multithread ->
+    /// [cal_score_batch_snp_par]
     pub fn run_batch_snp(&self, bed: BedReaderNoLib) -> Result<(DataFrame, MatchStatus)> {
         let (beta_batch_reader, cols) = self.beta_arg.batch_read(self.meta_arg.batch_size)?;
 
@@ -55,16 +71,4 @@ impl Runner<'_> {
         }
         Ok((score_frame, match_status))
     }
-}
-
-pub fn write_file(out_path: &str, scores: &mut DataFrame) -> Result<()> {
-    let out_path: File = File::create(out_path).unwrap();
-    CsvWriter::new(out_path).has_header(true).finish(scores)?;
-    Ok(())
-}
-
-pub fn save_as_json(my_struct: serde_json::Value, out_path: &str) -> Result<()> {
-    let mut file = std::fs::File::create(out_path)?;
-    serde_json::to_writer_pretty(&mut file, &my_struct)?;
-    Ok(())
 }

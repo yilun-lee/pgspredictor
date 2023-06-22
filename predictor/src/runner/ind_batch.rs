@@ -32,6 +32,7 @@ pub fn cal_score_batch_ind_single(
             &meta_arg.score_names,
         )?;
         result = result.vstack(&score)?;
+        debug!("Complete {}/{} batch", i + 1, num_batches);
     }
     Ok(result)
 }
@@ -116,6 +117,7 @@ pub fn cal_score_batch_ind_par(
     // collect result
     let mut init_flag = true;
     let mut result = get_empty_score(&*score_names)?;
+    let mut i = 0;
     for score in output_receiver {
         if init_flag {
             result = score;
@@ -123,6 +125,8 @@ pub fn cal_score_batch_ind_par(
         } else {
             result = result.vstack(&score)?;
         }
+        debug!("Complete {}/{} batch", i + 1, num_batches);
+        i += 1;
     }
 
     Ok(result)

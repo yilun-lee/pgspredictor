@@ -27,6 +27,7 @@ pub fn cal_score_batch_snp_single(
     // init
     let mut match_status = MatchStatus::new_empty();
     let mut score_sum: Option<Array2<f32>> = None;
+    let mut i = 0;
     loop {
         // get beta
         beta = match beta_batch_reader.next_batches(1)? {
@@ -47,6 +48,8 @@ pub fn cal_score_batch_snp_single(
             Some(v) => Some(v + score),
             None => Some(score),
         };
+        debug!("Complete {} batch", i + 1);
+        i += 1;
     }
     // unwrap score
     let score_sum = match score_sum {
@@ -79,7 +82,7 @@ impl ThreadWorkerBatchSnp<'_> {
     fn run(&mut self) -> Result<()> {
         let iid_idx = &None;
         let mut beta: DataFrame;
-
+        let mut i = 0;
         loop {
             beta = match self.receiver.recv()? {
                 Some(v) => v,
@@ -92,6 +95,8 @@ impl ThreadWorkerBatchSnp<'_> {
             // cal score
             let score = cal_score_array(&self.bed, &weights, iid_idx)?;
             self.sender.send((score, match_status)).unwrap();
+            debug!("Complete {} batch", i + 1);
+            i += 1;
         }
         Ok(())
     }

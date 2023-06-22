@@ -1,3 +1,14 @@
+//! This script join Beta and bim by snp to facilitate prediction.
+//! Snp will be matched by POS and CHR and make sure A1 from beta is present in
+//! REF and ALT of bim file. There may be several snp in beta or bim that shared
+//! same position. The first condition is where multiple
+//! model snp corresponding to one bfile snp (that is, there are multiple
+//! alleles, larger than 2, in the snp). Thanks for the marvelous implementation
+//! of [bed-reader](https://github.com/fastlmm/bed-reader), we can just get the specific bfile snp twice, each
+//! for one model snp. For other contition, where multiple modle snp
+//! corresponding to 1 bfile snp, we just get unique combination of POS, CHR and
+//! A1. This is fine since two bfile snp both got the A1 allele and they should
+//! be identical in the distribution of A1 allele.
 use std::ops::Add;
 
 use anyhow::{anyhow, Result};
@@ -10,18 +21,41 @@ use serde::Serialize;
 
 use crate::{args::MetaArg, MissingStrategy};
 
+/// constant for SNP match status.
+/// [GOOD] indicate that `A1 == ALT`
+/// [SWAP] indicate that `A1 == REF`, and genotype need to be swap
+/// [NO_MATCH] indicate that `A1 != ALT` && `A1 != REF`, and the snp should be
+/// filtered out
 pub const GOOD: &str = "Good";
 pub const SWAP: &str = "Swap";
 pub const NO_MATCH: &str = "NoMatch";
 
+/// Match status, result of the join between bfile and beta.
+/// ```rust
+/// use crate::join::MatchStatus;
+/// let aa = MatchStatus::new_empty();
+/// let bb = MatchStatus::new(1234, 234, 198);
+/// aa = aa + bb;
+/// println("{}", aa);
+/// ```
 #[derive(Debug, Serialize, Clone)]
 pub struct MatchStatus {
-    bfile_snp: usize,
-    model_snp: usize,
-    match_snp: usize,
+    pub bfile_snp: usize,
+    pub model_snp: usize,
+    pub match_snp: usize,
 }
 
+/// init an empty one
+#[allow(dead_code)]
 impl MatchStatus {
+    pub fn new(bfile_snp: usize, model_snp: usize, match_snp: usize) -> MatchStatus {
+        MatchStatus {
+            bfile_snp: bfile_snp,
+            model_snp: model_snp,
+            match_snp: match_snp,
+        }
+    }
+
     pub fn new_empty() -> MatchStatus {
         MatchStatus {
             bfile_snp: 0,
@@ -31,6 +65,7 @@ impl MatchStatus {
     }
 }
 
+/// provide add function
 impl Add for MatchStatus {
     type Output = MatchStatus;
     fn add(self, another: MatchStatus) -> MatchStatus {
@@ -42,7 +77,7 @@ impl Add for MatchStatus {
     }
 }
 
-/// TODO -> deal with duplicated
+/// match snp function.
 pub fn match_snp(
     meta_arg: &MetaArg,
     cols: &Vec<String>,
@@ -95,11 +130,17 @@ pub fn match_snp(
     Ok((weights, match_status))
 }
 
+/// Store the matched snp and weight into a Weight obj, which contain and
+/// preprocessanything needed for prediction.
 #[derive(Clone, Debug)]
 pub struct Weights {
+    /// The 2d weight matrix
     pub beta_values: Array2<f32>,
+    /// snp idx for bed that is matched with beta_values
     pub sid_idx: Vec<isize>,
+    /// StATUS and FREQ vec, FREQ may be empty
     pub status_freq_vec: Vec<(Option<String>, Option<f32>)>,
+    /// missing strategy for fill missing value
     pub missing_strategy: MissingStrategy,
 }
 
