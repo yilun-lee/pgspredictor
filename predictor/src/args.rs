@@ -45,7 +45,7 @@ pub struct Args {
     pub match_id_flag: bool,
 
     /// whether show log
-    #[arg(long, default_value_t = false)]
+    #[arg(short, long, default_value_t = false)]
     pub verbose: bool,
 
     /// whether to batch by snp, default is batch by ind
@@ -55,6 +55,10 @@ pub struct Args {
     /// whether output percentile and rank
     #[arg(short = 'P', long, default_value_t = false)]
     pub percentile_flag: bool,
+
+    /// whether output percentile and rank
+    #[arg(short = 'r', long)]
+    pub rank_path: Option<String>,
 
     /// chromosome column for weight file
     #[arg(long, default_value = "CHR")]
@@ -108,6 +112,7 @@ pub struct MetaArg<'a> {
     pub thread_num: usize,
     pub match_id_flag: bool,
     pub missing_strategy: MissingStrategy,
+    pub out_prefix: &'a str,
 }
 
 impl Args {
@@ -143,6 +148,7 @@ impl Args {
             thread_num: self.thread_num,
             match_id_flag: self.match_id_flag,
             missing_strategy: missing_strategy,
+            out_prefix: &self.out_prefix,
         };
         // bed_path and out_path are still only in self, they should not belong to meta
         // and they should only be access in main

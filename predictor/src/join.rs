@@ -14,7 +14,7 @@ use std::ops::Add;
 use anyhow::{anyhow, Result};
 use ndarray::Array2;
 use polars::{
-    lazy::dsl::{col, lit, when},
+    lazy::dsl::{all_exprs, col, lit, when},
     prelude::{DataFrame, DataFrameJoinOps, Float32Type, IntoLazy, UniqueKeepStrategy},
 };
 use serde::Serialize;
@@ -77,32 +77,42 @@ impl Add for MatchStatus {
     }
 }
 
-/// match snp function.
+/// match snp function. It do the following
+/// 1. Filter Beta by column needed and not null
+/// 2. Join Beta and Bim
+/// 3. Check swap and keep uniq CHR POS A1 paired
+/// 4. Get match status
+/// 5. Convert to Weight object for prediction
 pub fn match_snp(
     meta_arg: &MetaArg,
-    cols: &Vec<String>,
+    my_cols: &Vec<String>,
     bim: &DataFrame,
     mut beta: DataFrame,
-) -> Result<(Weights, MatchStatus)> {
-    // extract beta
-    beta = beta.select(cols)?;
+) -> Result<(Weights, MatchStatus, DataFrame)> {
+    // filter beta
+    // https://stackoverflow.com/questions/76437931/rust-polars-selecting-columns-after-applying-filter-on-rows-of-a-dataframe
+    beta = beta
+        .select(my_cols)?
+        .lazy()
+        .filter(all_exprs([col("*").is_not_null()]))
+        .collect()?;
     // match by id or chr pos
-    let weights: DataFrame;
+    let mut matched_beta: DataFrame;
     let identifier_cols: Vec<String>;
     if !meta_arg.match_id_flag {
-        weights = bim
+        matched_beta = bim
             .select(["IDX", "CHR", "POS", "ALT", "REF"])?
             .inner_join(&beta, ["CHR", "POS"], ["CHR", "POS"])?;
         identifier_cols = vec!["CHR".to_string(), "POS".to_string(), "A1".to_string()];
     } else {
-        weights = bim
-            .select(["IDX", "ID", "ALT", "REF"])?
-            .inner_join(&beta, ["ID"], ["ID"])?;
+        matched_beta =
+            bim.select(["IDX", "ID", "ALT", "REF"])?
+                .inner_join(&beta, ["ID"], ["ID"])?;
         identifier_cols = vec!["ID".to_string(), "A1".to_string()];
     }
 
     // filter weights
-    let weights = weights
+    matched_beta = matched_beta
         .lazy()
         .with_column(
             when(col("A1").eq(col("ALT")))
@@ -117,17 +127,21 @@ pub fn match_snp(
         .collect()?;
 
     // record match status
-    if weights.shape().0 == 0 {
+    if matched_beta.shape().0 == 0 {
         return Err(anyhow!("No snp matched between models and bfile!"));
     }
     let match_status = MatchStatus {
         bfile_snp: bim.shape().0,
         model_snp: beta.shape().0,
-        match_snp: weights.shape().0,
+        match_snp: matched_beta.shape().0,
     };
     // create weight object
-    let weights = Weights::new(weights, meta_arg.score_names, meta_arg.missing_strategy)?;
-    Ok((weights, match_status))
+    let weights_obj = Weights::new(
+        matched_beta.clone(),
+        meta_arg.score_names,
+        meta_arg.missing_strategy,
+    )?;
+    Ok((weights_obj, match_status, matched_beta))
 }
 
 /// Store the matched snp and weight into a Weight obj, which contain and
@@ -146,28 +160,30 @@ pub struct Weights {
 
 impl Weights {
     fn new(
-        mut weights: DataFrame,
+        mut matched_beta: DataFrame,
         score_names: &Vec<String>,
         missing_strategy: MissingStrategy,
     ) -> Result<Weights> {
         // weights
-        let beta_values = weights.select(score_names)?.to_ndarray::<Float32Type>()?;
+        let beta_values = matched_beta
+            .select(score_names)?
+            .to_ndarray::<Float32Type>()?;
         // get sid index in bfile
-        let sid_idx: Vec<isize> = weights
+        let sid_idx: Vec<isize> = matched_beta
             .column("IDX")?
             .u32()?
             .into_no_null_iter()
             .map(|v| v as isize)
             .collect();
         // if no freq, add freq
-        if let Err(_) = weights.column("FREQ") {
-            weights = weights
+        if let Err(_) = matched_beta.column("FREQ") {
+            matched_beta = matched_beta
                 .lazy()
                 .with_column(lit(0. as f32).alias("FREQ"))
                 .collect()?;
         }
-        let freq_iter = weights.column("FREQ")?.f32()?.into_iter();
-        let status_freq_vec: Vec<(Option<String>, Option<f32>)> = weights
+        let freq_iter = matched_beta.column("FREQ")?.f32()?.into_iter();
+        let status_freq_vec: Vec<(Option<String>, Option<f32>)> = matched_beta
             .column("STATUS")?
             .utf8()?
             .into_iter()

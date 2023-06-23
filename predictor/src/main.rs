@@ -74,6 +74,7 @@ fn main_fn() {
         &cli.score_names,
         &cli.out_prefix,
         cli.percentile_flag,
+        &cli.rank_path,
     );
     pgs_score.write_output().unwrap();
     info!("Complete pgs-predictor!");

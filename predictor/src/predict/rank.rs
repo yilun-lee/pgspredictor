@@ -1,4 +1,5 @@
 use anyhow::Result;
+use interp::interp_slice;
 use polars::{
     lazy::dsl::{col, lit},
     prelude::{
@@ -12,6 +13,7 @@ const RANK_OPT: RankOptions = RankOptions {
     method: RankMethod::Average,
     descending: false,
 };
+pub const RANK: &str = "RANK";
 
 pub fn get_self_percentile(scores: &DataFrame) -> Result<DataFrame> {
     let total_len = scores.shape().0 as i32;
@@ -29,7 +31,7 @@ pub fn get_self_percentile(scores: &DataFrame) -> Result<DataFrame> {
 
 pub fn get_pr_table(scores: &DataFrame, score_names: &Vec<String>) -> Result<DataFrame> {
     let my_range: Vec<i32> = (0..101).collect();
-    let pr_series = Series::from_vec("PR", my_range);
+    let pr_series = Series::from_vec(RANK, my_range);
     let mut my_columns: Vec<Series> = vec![pr_series];
 
     for score_name in score_names {
@@ -45,4 +47,21 @@ pub fn get_pr_table(scores: &DataFrame, score_names: &Vec<String>) -> Result<Dat
 
     let pr_table = DataFrame::new(my_columns)?;
     Ok(pr_table)
+}
+
+pub fn get_percentile_from_ref(
+    scores: &DataFrame,
+    ref_rank: &DataFrame,
+    score_names: &Vec<String>,
+) -> Result<DataFrame> {
+    let quantiles: Vec<f32> = ref_rank.column(RANK)?.f32()?.into_no_null_iter().collect();
+    let mut series_vec = vec![scores.column("FID")?.clone(), scores.column("IID")?.clone()];
+    for i in score_names {
+        let score: Vec<f32> = scores.column(i)?.f32()?.into_no_null_iter().collect();
+        let rank: Vec<f32> = ref_rank.column(i)?.f32()?.into_no_null_iter().collect();
+        let percentile = interp_slice(&rank, &quantiles, &score);
+        series_vec.push(Series::from_vec(i, percentile));
+    }
+    let percentiles = DataFrame::new(series_vec)?;
+    Ok(percentiles)
 }

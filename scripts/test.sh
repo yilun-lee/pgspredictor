@@ -10,7 +10,8 @@ cargo build -p predictor
     -b "data/input/test" \
     -o "data/output/test" \
     -T 1 -B 5 \
-    -n "Lassosum" -n CandT -M Zero
+    -n "Lassosum" -n CandT -M Impute -P \
+    --batch-snp --rank-path data/output/test.rank.csv
 
 
 BFILE="/Users/sox/Desktop/AILAB_DATA/Data/CLU_DATA/rename"
@@ -22,8 +23,7 @@ cargo build -p predictor -r
     -b ${BFILE} \
     -o /tmp/test \
     -T 4 -B 2000 \
-    -n PGS000099  -M Impute --batch-snp
-
+    -n PGS000099  -M Impute 
 
 hyperfine --warmup 3 -r 10 \
     "./target/release/predictor \

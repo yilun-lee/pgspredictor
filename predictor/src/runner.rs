@@ -16,6 +16,7 @@ use snp_batch::{cal_score_batch_snp_par, cal_score_batch_snp_single};
 use crate::{
     args::{Args, MetaArg},
     join::{match_snp, MatchStatus},
+    runner::post::write_beta,
 };
 
 /// The [Runner] struct. Basically from [Args]. [BetaArg] is for argument to
@@ -38,7 +39,8 @@ impl Runner<'_> {
     /// [cal_score_batch_ind_par]
     pub fn run_batch_ind(&self, bed: BedReaderNoLib) -> Result<(DataFrame, MatchStatus)> {
         let (beta, cols) = self.beta_arg.read()?;
-        let (weights, match_status) = match_snp(&self.meta_arg, &cols, &bed.bim, beta)?;
+        let (weights, match_status, mut match_beta) =
+            match_snp(&self.meta_arg, &cols, &bed.bim, beta)?;
         info!(
             "Successful load model. Match {}/{} of snp",
             match_status.match_snp, match_status.model_snp,
@@ -51,6 +53,8 @@ impl Runner<'_> {
         } else {
             score_frame = cal_score_batch_ind_par(&self.meta_arg, weights, bed)?;
         }
+        // save beta
+        write_beta(&mut match_beta, self.meta_arg.out_prefix, false)?;
         Ok((score_frame, match_status))
     }
 

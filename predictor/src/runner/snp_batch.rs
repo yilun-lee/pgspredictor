@@ -11,6 +11,7 @@ use crate::{
     args::MetaArg,
     join::{match_snp, MatchStatus, Weights},
     predict::{cal_score_array, score_to_frame},
+    runner::post::write_beta,
 };
 
 pub fn cal_score_batch_snp_single(
@@ -22,6 +23,7 @@ pub fn cal_score_batch_snp_single(
     // to avoid of binding
     let iid_idx = &None;
     let mut beta: DataFrame;
+    let mut matched_beta: DataFrame;
     let mut new_match_status: MatchStatus;
     let mut weights: Weights;
     // init
@@ -36,7 +38,8 @@ pub fn cal_score_batch_snp_single(
         };
         beta = beta.select(&cols)?;
         // match snp
-        (weights, new_match_status) = match match_snp(meta_arg, &cols, &bed.bim, beta) {
+        (weights, new_match_status, matched_beta) = match match_snp(meta_arg, &cols, &bed.bim, beta)
+        {
             Ok(v) => v,
             Err(_) => continue,
         };
@@ -48,6 +51,12 @@ pub fn cal_score_batch_snp_single(
             Some(v) => Some(v + score),
             None => Some(score),
         };
+        // write beta
+        if i == 0 {
+            write_beta(&mut matched_beta, meta_arg.out_prefix, false)?;
+        } else {
+            write_beta(&mut matched_beta, meta_arg.out_prefix, true)?;
+        }
         debug!("Complete {} batch", i + 1);
         i += 1;
     }
@@ -75,7 +84,7 @@ pub struct ThreadWorkerBatchSnp<'a> {
     // get from main
     pub receiver: Receiver<Option<DataFrame>>,
     // send to main
-    pub sender: Sender<(Array2<f32>, MatchStatus)>,
+    pub sender: Sender<(Array2<f32>, MatchStatus, DataFrame)>,
 }
 
 impl ThreadWorkerBatchSnp<'_> {
@@ -90,11 +99,13 @@ impl ThreadWorkerBatchSnp<'_> {
             };
             beta = beta.select(&*self.cols)?;
             // match snp
-            let (weights, match_status) =
+            let (weights, match_status, matched_beta) =
                 match_snp(&*self.meta_arg, &*self.cols, &self.bed.bim, beta)?;
             // cal score
             let score = cal_score_array(&self.bed, &weights, iid_idx)?;
-            self.sender.send((score, match_status)).unwrap();
+            self.sender
+                .send((score, match_status, matched_beta))
+                .unwrap();
             debug!("Complete {} batch", i + 1);
             i += 1;
         }
@@ -150,7 +161,8 @@ pub fn cal_score_batch_snp_par(
         }
 
         // collect result untils output_sender is terminated
-        let (score_sum, match_status) = join_threads_collect_result(output_receiver)?;
+        let (score_sum, match_status) =
+            join_threads_collect_result(output_receiver, meta_arg.out_prefix)?;
         // join
         join_thread_vec(thread_vec)?;
 
@@ -165,11 +177,13 @@ pub fn cal_score_batch_snp_par(
 }
 
 fn join_threads_collect_result(
-    output_receiver: Receiver<(Array2<f32>, MatchStatus)>,
+    output_receiver: Receiver<(Array2<f32>, MatchStatus, DataFrame)>,
+    out_prefix: &str,
 ) -> Result<(Array2<f32>, MatchStatus)> {
     let mut match_status = MatchStatus::new_empty();
     let mut score_sum: Option<Array2<f32>> = None;
-    for (score, new_match_status) in output_receiver {
+    let mut cc = 0;
+    for (score, new_match_status, mut matched_beta) in output_receiver {
         // add match_status
         match_status = match_status + new_match_status;
         // cal score
@@ -177,6 +191,13 @@ fn join_threads_collect_result(
             Some(v) => Some(v + score),
             None => Some(score),
         };
+        // write beta
+        if cc == 0 {
+            write_beta(&mut matched_beta, out_prefix, false)?;
+        } else {
+            write_beta(&mut matched_beta, out_prefix, true)?;
+        }
+        cc += 1;
     }
     // unwrap score
     let score_sum = match score_sum {
