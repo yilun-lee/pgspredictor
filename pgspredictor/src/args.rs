@@ -1,6 +1,8 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use betareader::BetaArg;
 use clap::Parser;
+use log::{debug, warn};
+use predictor::meta::{MetaArg, MissingStrategy};
 
 /// Command argument
 #[derive(Parser, Debug)]
@@ -40,7 +42,7 @@ pub struct Args {
     #[arg(short = 'M', long, default_value = "Impute")]
     pub missing_strategy: String,
 
-    /// whether to match by id
+    /// whether to match by id instead of match by pos and chrom
     #[arg(long, default_value_t = false)]
     pub match_id_flag: bool,
 
@@ -52,11 +54,13 @@ pub struct Args {
     #[arg(long, default_value_t = false)]
     pub batch_snp: bool,
 
-    /// whether output percentile and rank
+    /// whether to output percentile and rank
     #[arg(short = 'P', long, default_value_t = false)]
     pub percentile_flag: bool,
 
-    /// whether output percentile and rank
+    /// path to rank file produce by pgs-predictor. RANK as the first column,
+    /// which is 0~100, and the other column are score names. If specified,
+    /// percentiles of sample scores are interpolated based on the rank.
     #[arg(short = 'r', long)]
     pub rank_path: Option<String>,
 
@@ -79,40 +83,6 @@ pub struct Args {
     /// freq column for weight file
     #[arg(long, default_value = "FREQ")]
     pub freq: String,
-}
-
-#[derive(Clone, Debug, Copy)]
-pub enum MissingStrategy {
-    Impute,
-    Zero,
-    Freq,
-}
-
-impl MissingStrategy {
-    pub fn new(strategy: &str) -> Result<MissingStrategy> {
-        let my_strategy = match strategy {
-            "Impute" => MissingStrategy::Impute,
-            "Zero" => MissingStrategy::Zero,
-            "Freq" => MissingStrategy::Freq,
-            _ => {
-                return Err(anyhow!(
-                    "Argument missing_strategy should be one of the following: [ Impute, Zero, \
-                     Freq ], got {}",
-                    strategy
-                ))
-            }
-        };
-        Ok(my_strategy)
-    }
-}
-
-pub struct MetaArg<'a> {
-    pub score_names: &'a Vec<String>,
-    pub batch_size: usize,
-    pub thread_num: usize,
-    pub match_id_flag: bool,
-    pub missing_strategy: MissingStrategy,
-    pub out_prefix: &'a str,
 }
 
 impl Args {

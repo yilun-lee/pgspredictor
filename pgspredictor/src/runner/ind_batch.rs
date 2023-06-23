@@ -3,12 +3,11 @@ use std::{sync::Arc, thread};
 use anyhow::Result;
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use genoreader::BedReaderNoLib;
-//use ndarray::prelude::*;
+use log::debug;
 use polars::prelude::DataFrame;
-
-use crate::{
-    args::MetaArg,
+use predictor::{
     join::Weights,
+    meta::MetaArg,
     predict::{cal_scores, get_empty_score},
 };
 

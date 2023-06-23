@@ -10,14 +10,15 @@ use anyhow::Result;
 use betareader::BetaArg;
 use genoreader::BedReaderNoLib;
 use ind_batch::{cal_score_batch_ind_par, cal_score_batch_ind_single};
+use log::info;
 use polars::prelude::DataFrame;
+use predictor::{
+    join::{match_snp, MatchStatus},
+    meta::MetaArg,
+};
 use snp_batch::{cal_score_batch_snp_par, cal_score_batch_snp_single};
 
-use crate::{
-    args::{Args, MetaArg},
-    join::{match_snp, MatchStatus},
-    runner::post::write_beta,
-};
+use crate::{args::Args, runner::post::write_beta};
 
 /// The [Runner] struct. Basically from [Args]. [BetaArg] is for argument to
 /// load weights. [MetaArg] is runner argument such as batch_size.

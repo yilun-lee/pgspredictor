@@ -4,6 +4,7 @@ members = [
     "predictor",
     "genoreader",
     "betareader",
+    "pgspredictor",
 ]
 
 

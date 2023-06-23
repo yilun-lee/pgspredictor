@@ -1,26 +1,17 @@
 #![doc = include_str!("../../README.md")]
 
-#[macro_use]
-extern crate log;
-extern crate blas_src;
-
 mod args;
-mod join;
-mod predict;
 mod runner;
 
 use args::Args;
 use clap::Parser;
 use env_logger::Builder;
 use genoreader::BedReaderNoLib;
-use log::LevelFilter;
+use log::{debug, info, LevelFilter};
 use polars::{export::chrono, prelude::DataFrame};
+use predictor::join::MatchStatus;
 
-use crate::{
-    args::MissingStrategy,
-    join::MatchStatus,
-    runner::{post::PgsResult, Runner},
-};
+use crate::runner::{post::PgsResult, Runner};
 
 fn print_run_config(cli: &Args) {
     let aa: &str;

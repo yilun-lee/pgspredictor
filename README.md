@@ -59,15 +59,17 @@ Options:
   -B, --batch-size <BATCH_SIZE>
           batch size for sample / or snp if batch-snp flag is set [default: 10000]
   -M, --missing-strategy <MISSING_STRATEGY>
-          Use freq to fill missing or not [default: Impute]
+          Strategy to deal with missing value in genotype. Should be one of the following: Freq, Impute and Zero [default: Impute]
       --match-id-flag
           whether to match by id
-      --verbose
-          whether to show log
+  -v, --verbose
+          whether show log
       --batch-snp
           whether to batch by snp, default is batch by ind
   -P, --percentile-flag
-          if output percentile and rank
+          whether output percentile and rank
+  -r, --rank-path <RANK_PATH>
+          whether output percentile and rank
       --chrom <CHROM>
           chromosome column for weight file [default: CHR]
       --pos <POS>
@@ -82,6 +84,7 @@ Options:
           Print help
   -V, --version
           Print version
+
 ```
 
 There are three required arguments: `--weight-path <WEIGHT_PATH> --bed-path <BED_PATH> --out-path <OUT_PATH>` 
@@ -171,14 +174,10 @@ This is a simple exaple using very small bfile and weights. You may check the ou
 
 1. Validation, the result should be better than plink2. 
 2. Validation and Prediction mode
-   1. Allow to calculate percentile given a score distribution.
-   2. Output beta files in validation mode 
-   3. Performance evaluation 
 3. Integrated with pgs catalog.
 4. Support for more genotype format.
 5. Improve and benchmark speed.
-6. Remove missing value in beta file
-7. CICD for testing and distributing
+6. CICD for testing and distributing
 
 
 ### Install

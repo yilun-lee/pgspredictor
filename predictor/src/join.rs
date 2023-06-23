@@ -19,7 +19,7 @@ use polars::{
 };
 use serde::Serialize;
 
-use crate::{args::MetaArg, MissingStrategy};
+use crate::meta::{MetaArg, MissingStrategy};
 
 /// constant for SNP match status.
 /// [GOOD] indicate that `A1 == ALT`

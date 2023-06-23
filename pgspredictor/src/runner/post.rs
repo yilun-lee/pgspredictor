@@ -4,11 +4,11 @@ use std::{
 };
 
 use anyhow::Result;
+use log::info;
 use polars::prelude::{
     CsvReader, CsvWriter, DataFrame, DataType, Field, Schema, SerReader, SerWriter,
 };
-
-use crate::{
+use predictor::{
     join::MatchStatus,
     predict::rank::{get_percentile_from_ref, get_pr_table, get_self_percentile, RANK},
 };

@@ -3,16 +3,17 @@ use std::{sync::Arc, thread};
 use anyhow::{anyhow, Result};
 use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 use genoreader::{BedReaderNoLib, ReadGenotype};
+use log::debug;
 use ndarray::Array2;
 //use ndarray::prelude::*;
 use polars::prelude::{read_impl::OwnedBatchedCsvReader, DataFrame};
-
-use crate::{
-    args::MetaArg,
+use predictor::{
     join::{match_snp, MatchStatus, Weights},
+    meta::MetaArg,
     predict::{cal_score_array, score_to_frame},
-    runner::post::write_beta,
 };
+
+use crate::runner::post::write_beta;
 
 pub fn cal_score_batch_snp_single(
     meta_arg: &MetaArg,

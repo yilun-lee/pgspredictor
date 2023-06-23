@@ -7,7 +7,7 @@ use polars::{
 
 use crate::{
     join::{Weights, SWAP},
-    MissingStrategy,
+    meta::MissingStrategy,
 };
 
 fn missing_as_freq(freq: f32, swap_flag: bool) -> Box<dyn FnMut(f32) -> f32> {
