@@ -192,8 +192,8 @@ fn join_threads_collect_result(
 ) -> Result<(Array2<f32>, MatchStatus)> {
     let mut match_status = MatchStatus::new_empty();
     let mut score_sum: Option<Array2<f32>> = None;
-    let mut cc = 0;
-    for (score, new_match_status, mut matched_beta) in output_receiver {
+    for (cc, (score, new_match_status, mut matched_beta)) in output_receiver.into_iter().enumerate()
+    {
         // add match_status
         match_status = match_status + new_match_status;
         // cal score
@@ -209,7 +209,6 @@ fn join_threads_collect_result(
                 write_beta(&mut matched_beta, out_prefix, true)?;
             }
         }
-        cc += 1;
     }
     // unwrap score
     let score_sum = match score_sum {

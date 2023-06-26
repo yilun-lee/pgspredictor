@@ -31,7 +31,7 @@ pub struct Runner<'a> {
 impl Runner<'_> {
     /// Init from [Args]
     pub fn from_args(cli: &MyArgs) -> Result<Runner> {
-        let (beta_arg, meta_arg) = cli.into_struct()?;
+        let (beta_arg, meta_arg) = cli.get_structs()?;
 
         Ok(Runner {
             beta_arg,

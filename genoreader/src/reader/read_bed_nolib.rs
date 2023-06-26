@@ -112,7 +112,7 @@ impl ReadGenotype for BedReaderNoLib {
 }
 
 fn create_mask(
-    v: &Vec<isize>,
+    v: &[isize],
     inv: bool,
     data_frame: &DataFrame,
 ) -> Result<ChunkedArray<BooleanType>> {

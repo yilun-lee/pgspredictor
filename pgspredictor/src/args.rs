@@ -114,7 +114,7 @@ pub struct BetaCol {
 impl MyArgs {
     /// Convert [MyArgs] into [BetaArg] and [MetaArg]
     /// [BetaArg] is for reading of beta from [betareader]
-    pub fn into_struct(&self) -> Result<(BetaArg, MetaArg)> {
+    pub fn get_structs(&self) -> Result<(BetaArg, MetaArg)> {
         // some check
         let missing_strategy = MissingStrategy::new(&self.missing_strategy)?;
         if matches!(missing_strategy, MissingStrategy::Impute) && self.batch_ind {

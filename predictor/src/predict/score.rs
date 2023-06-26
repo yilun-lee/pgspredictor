@@ -13,7 +13,7 @@ pub fn cal_scores(
     i: usize,
     batch_size: usize,
     bed: &BedReaderNoLib,
-    score_names: &Vec<String>,
+    score_names: &[String],
 ) -> Result<DataFrame> {
     // cal batch
     let _start = i * batch_size;

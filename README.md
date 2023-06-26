@@ -1,4 +1,4 @@
-## Prs-Predictor-rs
+## Pgs-Predictor-rs
 
 This is a bio-informatics tools to calculate polygenic risk score (PGS) from [pgs model weights](https://www.pgscatalog.org) and [plink bed file](https://www.cog-genomics.org/plink/1.9/formats#bed) format. The main puropose of this tool is just like [plink2 linear score](https://www.cog-genomics.org/plink/2.0/score). However, it is aimed to provided more functions than plink. For now, the tool can take care of snp matching by physical position and a1 allele, and report number of match snps. And there is also option to use provided frequency to fill missing. The tools is still working in progress.
 
@@ -43,13 +43,15 @@ predictor -h
 ```console
 A pgs predictor written in rust
 
-Usage: predictor [OPTIONS] --weight-path <WEIGHT_PATH> --bed-path <BED_PATH> --out-prefix <OUT_PREFIX>
+Usage: pgspredictor [OPTIONS] --out-prefix <OUT_PREFIX> <WEIGHT_PATH> <BED_PATH>
+
+Arguments:
+  <WEIGHT_PATH>
+          weight path, should be a tsv file
+  <BED_PATH>
+          path to plink bed files
 
 Options:
-  -m, --weight-path <WEIGHT_PATH>
-          weight path, should be a tsv file
-  -b, --bed-path <BED_PATH>
-          path to plink bed files
   -o, --out-prefix <OUT_PREFIX>
           output prefix
   -n, --score-names <SCORE_NAMES>
@@ -58,18 +60,12 @@ Options:
           number of thread to run [default: 1]
   -B, --batch-size <BATCH_SIZE>
           batch size for sample / or snp if batch-snp flag is set [default: 10000]
-  -M, --missing-strategy <MISSING_STRATEGY>
-          Strategy to deal with missing value in genotype. Should be one of the following: Freq, Impute and Zero [default: Impute]
       --match-id-flag
-          whether to match by id
-  -v, --verbose
-          whether show log
-      --batch-snp
-          whether to batch by snp, default is batch by ind
-  -P, --percentile-flag
-          whether output percentile and rank
-  -r, --rank-path <RANK_PATH>
-          whether output percentile and rank
+          whether to match by id instead of match by pos and chrom
+  -v, --verbose...
+          whether to show log, use -v -vv -vvv to present increase log level
+      --batch-ind
+          whether to batch by ind, default is batch by snp
       --chrom <CHROM>
           chromosome column for weight file [default: CHR]
       --pos <POS>
@@ -80,11 +76,24 @@ Options:
           a1 column for weight file [default: A1]
       --freq <FREQ>
           freq column for weight file [default: FREQ]
+      --pvalue <PVALUE>
+          pvalue column for weight file, required when --q-ranges is specifeid [default: P]
+  -M, --missing-strategy <MISSING_STRATEGY>
+          Strategy to deal with missing value in genotype. Should be one of the following: Freq, Impute and Zero [default: Impute]
+      --write-beta
+          whether to write matched snp and related information to *.beta.csv
+  -E, --eval-flag
+          whether to calculate correlation between PHENO and score
+  -P, --percentile-flag
+          whether to output percentile and rank
+  -R, --rank-path <RANK_PATH>
+          path to rank file produce by pgs-predictor. RANK as the first column, which is 0~100, and the other column are score names. If specified, percentiles of sample scores are interpolated based on the rank
+  -Q, --q-ranges <Q_RANGES>
+          q range file, a headerless tsv file consisted of three columns: **name**, **from** and **to**, used in filtering p value for weights
   -h, --help
           Print help
   -V, --version
           Print version
-
 ```
 
 There are three required arguments: `--weight-path <WEIGHT_PATH> --bed-path <BED_PATH> --out-path <OUT_PATH>` 

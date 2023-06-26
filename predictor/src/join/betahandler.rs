@@ -43,7 +43,7 @@ pub struct QRange<'a> {
 }
 
 /// pub fun
-impl<'a> QRange<'_> {
+impl QRange<'_> {
     pub fn new<'b>(q_ranges_path: &'b str, score_names: &'b Vec<String>) -> Result<QRange<'b>> {
         // create empty
         let mut q_range: QRange = QRange::new_empty(score_names);
