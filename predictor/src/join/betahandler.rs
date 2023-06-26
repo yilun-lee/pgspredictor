@@ -50,7 +50,7 @@ impl<'a> QRange<'_> {
         // read
         let file = File::open(q_ranges_path)?;
         for line in BufReader::new(file).lines() {
-            let line = line?.replace('\n', "").replace('\r', "");
+            let line = line?.replace(['\n', '\r'], "");
             q_range.add_one_line(&line)?;
         }
         // get score_names
@@ -100,8 +100,7 @@ impl<'a> QRange<'a> {
     }
 
     fn add_one_line(&mut self, line: &str) -> Result<()> {
-        let mut cc: u32 = 0;
-        for i in line.split("\t") {
+        for (cc, i) in (0_u32..).zip(line.split('\t')) {
             match cc {
                 0 => self.name.push(i.to_string()),
                 1 => self.from.push(i.parse::<f32>()?),
@@ -113,7 +112,6 @@ impl<'a> QRange<'a> {
                     ))
                 }
             }
-            cc += 1
         }
         Ok(())
     }

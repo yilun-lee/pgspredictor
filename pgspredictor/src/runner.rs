@@ -53,12 +53,11 @@ impl Runner<'_> {
         );
 
         // run
-        let score_frame: DataFrame;
-        if self.meta_arg.thread_num == 1 {
-            score_frame = cal_score_batch_ind_single(&self.meta_arg, weights, bed)?;
+        let score_frame = if self.meta_arg.thread_num == 1 {
+            cal_score_batch_ind_single(&self.meta_arg, weights, bed)?
         } else {
-            score_frame = cal_score_batch_ind_par(&self.meta_arg, weights, bed)?;
-        }
+            cal_score_batch_ind_par(&self.meta_arg, weights, bed)?
+        };
         // save beta
         if self.write_match {
             write_beta(&mut match_beta, self.meta_arg.out_prefix, false)?;
@@ -72,25 +71,23 @@ impl Runner<'_> {
     pub fn run_batch_snp(&self, bed: BedReaderNoLib) -> Result<(DataFrame, MatchStatus)> {
         let (beta_batch_reader, cols) = self.beta_arg.batch_read(self.meta_arg.batch_size)?;
 
-        let score_frame: DataFrame;
-        let match_status: MatchStatus;
-        if self.meta_arg.thread_num == 1 {
-            (score_frame, match_status) = cal_score_batch_snp_single(
+        let (score_frame, match_status) = if self.meta_arg.thread_num == 1 {
+            cal_score_batch_snp_single(
                 &self.meta_arg,
                 cols,
                 beta_batch_reader,
                 bed,
                 self.write_match,
-            )?;
+            )?
         } else {
-            (score_frame, match_status) = cal_score_batch_snp_par(
+            cal_score_batch_snp_par(
                 &self.meta_arg,
                 cols,
                 beta_batch_reader,
                 bed,
                 self.write_match,
-            )?;
-        }
+            )?
+        };
         Ok((score_frame, match_status))
     }
 }

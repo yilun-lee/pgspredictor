@@ -1,4 +1,6 @@
 use anyhow::Result;
+use betareader::RANK;
+use genoreader::meta::{FID, IID};
 use interp::interp_slice;
 use polars::{
     lazy::dsl::{col, lit},
@@ -13,7 +15,6 @@ const RANK_OPT: RankOptions = RankOptions {
     method: RankMethod::Average,
     descending: false,
 };
-pub const RANK: &str = "RANK";
 
 pub fn get_self_percentile(scores: &DataFrame) -> Result<DataFrame> {
     let total_len = scores.shape().0 as i32;
@@ -21,9 +22,9 @@ pub fn get_self_percentile(scores: &DataFrame) -> Result<DataFrame> {
         .clone()
         .lazy()
         .select([
-            col("FID"),
-            col("IID"),
-            col("*").exclude(["FID", "IID"]).rank(RANK_OPT, None) / lit(total_len),
+            col(FID),
+            col(IID),
+            col("*").exclude([FID, IID]).rank(RANK_OPT, None) / lit(total_len),
         ])
         .collect()?;
     Ok(percentiles)
@@ -55,7 +56,7 @@ pub fn get_percentile_from_ref(
     score_names: &Vec<String>,
 ) -> Result<DataFrame> {
     let quantiles: Vec<f32> = ref_rank.column(RANK)?.f32()?.into_no_null_iter().collect();
-    let mut series_vec = vec![scores.column("FID")?.clone(), scores.column("IID")?.clone()];
+    let mut series_vec = vec![scores.column(FID)?.clone(), scores.column(IID)?.clone()];
     for i in score_names {
         let score: Vec<f32> = scores.column(i)?.f32()?.into_no_null_iter().collect();
         let rank: Vec<f32> = ref_rank.column(i)?.f32()?.into_no_null_iter().collect();

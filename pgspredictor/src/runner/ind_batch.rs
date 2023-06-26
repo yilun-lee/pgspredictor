@@ -21,14 +21,14 @@ pub fn cal_score_batch_ind_single(
         num_batches += 1
     }
 
-    let mut result = get_empty_score(&meta_arg.get_score_names(false))?;
+    let mut result = get_empty_score(meta_arg.get_score_names(false))?;
     for i in 0..num_batches {
         let score = cal_scores(
             &weights,
             i,
             meta_arg.batch_size,
             &bed,
-            &&meta_arg.get_score_names(false),
+            meta_arg.get_score_names(false),
         )?;
         result = result.vstack(&score)?;
         debug!("Complete {}/{} batch", i + 1, num_batches);
@@ -53,18 +53,13 @@ struct ThreadWorkerBatchInd {
 
 impl ThreadWorkerBatchInd {
     fn run(&mut self) -> Result<()> {
-        loop {
-            let idx = match self.receiver.recv()? {
-                Some(v) => v,
-                None => break,
-            };
-
+        while let Some(idx) = self.receiver.recv()? {
             let score: DataFrame = cal_scores(
-                &*self.weights,
+                &self.weights,
                 idx,
                 self.batch_size,
-                &*self.bed,
-                &*self.score_names,
+                &self.bed,
+                &self.score_names,
             )?;
             self.sender.send(score).unwrap();
         }
@@ -82,7 +77,7 @@ pub fn cal_score_batch_ind_par(
 
     // init worker
     let weights = Arc::new(weights);
-    let bed = Arc::new(bed.clone());
+    let bed = Arc::new(bed);
     let score_names = Arc::new(meta_arg.get_score_names(false).clone());
 
     for _ in 0..meta_arg.thread_num {
@@ -115,9 +110,8 @@ pub fn cal_score_batch_ind_par(
 
     // collect result
     let mut init_flag = true;
-    let mut result = get_empty_score(&*score_names)?;
-    let mut i = 0;
-    for score in output_receiver {
+    let mut result = get_empty_score(&score_names)?;
+    for (i, score) in output_receiver.into_iter().enumerate() {
         if init_flag {
             result = score;
             init_flag = false;
@@ -125,7 +119,6 @@ pub fn cal_score_batch_ind_par(
             result = result.vstack(&score)?;
         }
         debug!("Complete {}/{} batch", i + 1, num_batches);
-        i += 1;
     }
 
     Ok(result)

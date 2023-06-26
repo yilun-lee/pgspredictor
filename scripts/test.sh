@@ -20,66 +20,36 @@ cargo build -p pgspredictor
     -T 1 -B 5 \
     -n "Lassosum" -n CandT -M Impute -P \
     --rank-path data/output/test.rank.csv -vv \
-    -Q data/input/test.range
+    -Q data/input/test.range -E --batch-ind
 
 
 BFILE="/Users/sox/Desktop/AILAB_DATA/Data/CLU_DATA/rename"
 MODEL="/Users/sox/Desktop/AILAB_DATA/Data/PGS000099.tsv"
-
-cargo build -p pgspredictor -r 
 ./target/debug/pgspredictor \
-    -m ${MODEL} \
-    -b ${BFILE} \
+    ${MODEL} \
+    ${BFILE} \
     -o /tmp/test \
     -T 4 -B 2000 \
-    -n PGS000099  -M Impute 
+    -n PGS000099  -M Impute -E
 
+
+cargo build -p pgspredictor -r 
 hyperfine --warmup 3 -r 10 \
-    "./target/release/predictor \
-    -m ${MODEL} \
-    -b ${BFILE} \
+    "./target/release/pgspredictor \
+    ${MODEL} \
+    ${BFILE} \
     -o /tmp/test \
     -T 6 -B 2000 \
-    -n PGS000099  -M Impute --batch-snp
+    -n PGS000099  -M Impute 
     " \
-    "./target/release/predictor \
-    -m ${MODEL} \
-    -b ${BFILE} \
+    "./target/release/pgspredictor \
+    ${MODEL} \
+    ${BFILE} \
     -o /tmp/test \
     -T 1 -B 16000 \
-    -n PGS000099  -M Impute --batch-snp
+    -n PGS000099  -M Impute 
     " \
-    " ./target/release/predictor \
-    -m ${MODEL} \
-    -b ${BFILE} \
-    -o /tmp/test \
-    -T 6 -B 2000 \
-    -n PGS000099  -M Impute " \
-    " ./target/release/predictor \
-    -m ${MODEL} \
-    -b ${BFILE} \
-    -o /tmp/test \
-    -T 1 -B 16000 \
-    -n PGS000099  -M Impute " \
     "plink2 --bfile ${BFILE} \
     --score ${MODEL} 3 6 10 header cols=+scoresums ignore-dup-ids\
     --out /tmp/test"
-
-
-
-hyperfine --warmup 3 -r 10 \
-    "./target/release/predictor \
-    -m ${MODEL} \
-    -b ${BFILE} \
-    -o /tmp/test \
-    -T 1 -B 13000 \
-    -n PGS000099  -M Impute --batch-snp
-    " \
-    "./target/release/predictor \
-    -m ${MODEL} \
-    -b ${BFILE} \
-    -o /tmp/test \
-    -T 6 -B 2000 \
-    -n PGS000099  -M Impute --batch-snp --percentile-flag
-    " 
 

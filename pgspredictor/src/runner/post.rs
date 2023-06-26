@@ -10,7 +10,11 @@ use polars::prelude::{
 };
 use predictor::{
     join::MatchStatus,
-    predict::rank::{get_percentile_from_ref, get_pr_table, get_self_percentile, RANK},
+    meta::RANK,
+    post::{
+        metrics::cal_cor,
+        rank::{get_percentile_from_ref, get_pr_table, get_self_percentile},
+    },
 };
 pub struct PgsResult<'a> {
     scores: &'a mut DataFrame,
@@ -19,6 +23,7 @@ pub struct PgsResult<'a> {
     score_names: &'a Vec<String>,
     percentile_flag: bool,
     rank_path: &'a Option<String>,
+    eval: bool,
 }
 
 impl PgsResult<'_> {
@@ -29,6 +34,7 @@ impl PgsResult<'_> {
         out_prefix: &'a str,
         percentile_flag: bool,
         rank_path: &'a Option<String>,
+        eval: bool,
     ) -> PgsResult<'a> {
         PgsResult {
             scores,
@@ -37,11 +43,15 @@ impl PgsResult<'_> {
             score_names,
             percentile_flag,
             rank_path,
+            eval,
         }
     }
 
     pub fn write_output(&mut self) -> Result<()> {
         self.write_score()?;
+        if self.eval {
+            self.cal_cor()?;
+        }
         self.write_status()?;
         if self.percentile_flag {
             self.write_percentiles()?;
@@ -55,7 +65,7 @@ impl PgsResult<'_> {
         let out_file: File = File::create(&out_path)?;
         CsvWriter::new(out_file)
             .has_header(true)
-            .finish(&mut self.scores)?;
+            .finish(self.scores)?;
         info!("Output scores to {}", &out_path);
         Ok(())
     }
@@ -80,9 +90,9 @@ impl PgsResult<'_> {
             Some(v) => {
                 let ref_rank = self.read_rank(v)?;
                 info!("Use ref rank to interpolate percentiles");
-                get_percentile_from_ref(&self.scores, &ref_rank, self.score_names)?
+                get_percentile_from_ref(self.scores, &ref_rank, self.score_names)?
             }
-            None => get_self_percentile(&self.scores)?,
+            None => get_self_percentile(self.scores)?,
         };
         CsvWriter::new(out_file)
             .has_header(true)
@@ -93,7 +103,7 @@ impl PgsResult<'_> {
 
     fn write_rank(&self) -> Result<()> {
         let out_path = self.out_prefix.to_owned() + ".rank.csv";
-        let mut rank = get_pr_table(&self.scores, &self.score_names)?;
+        let mut rank = get_pr_table(self.scores, self.score_names)?;
         let out_file: File = File::create(&out_path)?;
         CsvWriter::new(out_file)
             .has_header(true)
@@ -114,6 +124,17 @@ impl PgsResult<'_> {
             .finish()?;
         Ok(ref_rank)
     }
+
+    fn cal_cor(&self) -> Result<()> {
+        let out_path = self.out_prefix.to_owned() + ".cor.csv";
+        let mut cor_res = cal_cor(self.scores, self.score_names).unwrap();
+        let out_file: File = File::create(&out_path)?;
+        CsvWriter::new(out_file)
+            .has_header(true)
+            .finish(&mut cor_res)?;
+        info!("Output correlation to {}", &out_path);
+        Ok(())
+    }
 }
 
 /// write match beta to file.
@@ -121,15 +142,14 @@ impl PgsResult<'_> {
 /// different behavior, and therefore this function should be used inside Runner
 pub fn write_beta(beta: &mut DataFrame, out_prefix: &str, append_flag: bool) -> Result<()> {
     let out_path = out_prefix.to_owned() + ".beta.tsv";
-    let out_file: File;
-    if append_flag {
-        out_file = OpenOptions::new()
+    let out_file = if append_flag {
+        OpenOptions::new()
             .write(true)
             .append(true)
-            .open(&out_path)?;
+            .open(&out_path)?
     } else {
-        out_file = File::create(&out_path)?;
-    }
+        File::create(&out_path)?
+    };
     CsvWriter::new(out_file)
         .has_header(true)
         .with_delimiter(b'\t')

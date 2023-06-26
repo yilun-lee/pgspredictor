@@ -75,7 +75,7 @@ pub fn cal_score_batch_snp_single(
     };
     // score for frame
     let batch_fam = bed.get_ind(iid_idx, false)?;
-    let score_frame = score_to_frame(&batch_fam, score_sum, &meta_arg.get_score_names(false))?;
+    let score_frame = score_to_frame(&batch_fam, score_sum, meta_arg.get_score_names(false))?;
 
     Ok((score_frame, match_status))
 }
@@ -108,7 +108,7 @@ impl ThreadWorkerBatchSnp<'_> {
             beta = beta.select(&*self.cols)?;
             // match snp
             let (weights, match_status, matched_beta) =
-                match_snp(&*self.meta_arg, &*self.cols, &self.bed.bim, beta)?;
+                match_snp(&self.meta_arg, &self.cols, &self.bed.bim, beta)?;
             // cal score
             let score = cal_score_array(&self.bed, &weights, iid_idx)?;
             self.sender
@@ -180,7 +180,7 @@ pub fn cal_score_batch_snp_par(
 
     // score to dataframe
     let batch_fam = bed.get_ind(&None, false)?;
-    let score_frame = score_to_frame(&batch_fam, score_sum, &meta_arg.get_score_names(false))?;
+    let score_frame = score_to_frame(&batch_fam, score_sum, meta_arg.get_score_names(false))?;
 
     Ok((score_frame, match_status))
 }

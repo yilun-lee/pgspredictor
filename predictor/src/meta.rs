@@ -2,6 +2,10 @@ use anyhow::{anyhow, Result};
 
 use crate::join::betahandler::QRange;
 
+/// auto generated column name
+pub const STATUS: &str = "STATUS";
+pub const RANK: &str = "RANK";
+
 #[derive(Clone, Debug, Copy)]
 pub enum MissingStrategy {
     Impute,
@@ -47,12 +51,12 @@ impl<'a> MetaArg<'a> {
         match &self.q_range_enum {
             QrangeOrScorenames::QRange(v) => {
                 if old_flag {
-                    return v.score_names_raw;
+                    v.score_names_raw
                 } else {
-                    return &v.score_names;
+                    &v.score_names
                 }
             }
-            QrangeOrScorenames::ScoreNameRaws(v) => return v,
+            QrangeOrScorenames::ScoreNameRaws(v) => v,
         }
     }
 }

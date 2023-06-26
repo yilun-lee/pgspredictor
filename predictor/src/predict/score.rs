@@ -36,7 +36,7 @@ pub fn cal_score_array(
     let mut gt = bed.get_geno(&Some(weights.sid_idx.clone()), iid_idx)?;
 
     // process gt
-    process_gt(&weights, &mut gt)?;
+    process_gt(weights, &mut gt)?;
 
     // get beta and cal score
     let score = gt.dot(&weights.beta_values);

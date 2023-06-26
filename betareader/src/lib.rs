@@ -14,6 +14,16 @@ use polars::{
     },
 };
 
+/// const for default column name
+pub const ID: &str = "ID";
+pub const CHR: &str = "CHR";
+pub const POS: &str = "POS";
+pub const A1: &str = "A1";
+/// optional default column name
+pub const FREQ: &str = "FREQ";
+pub const PVALUE: &str = "P";
+pub const RANK: &str = "RANK";
+
 #[derive(Debug)]
 pub struct BetaArg<'a> {
     // col
@@ -35,24 +45,24 @@ pub struct BetaArg<'a> {
 impl<'a> BetaArg<'a> {
     fn get_schema_table(&self) -> Result<HashMap<&str, (&str, DataType)>> {
         let mut schema_table = HashMap::new();
-        schema_table.insert(self.chrom, ("CHR", DataType::Utf8));
-        schema_table.insert(self.pos, ("POS", DataType::Int32));
-        schema_table.insert(self.a1, ("A1", DataType::Utf8));
+        schema_table.insert(self.chrom, (CHR, DataType::Utf8));
+        schema_table.insert(self.pos, (POS, DataType::Int32));
+        schema_table.insert(self.a1, (A1, DataType::Utf8));
 
         for i in self.score_names {
             schema_table.insert(i, (i, DataType::Float32));
         }
 
         if self.need_freq {
-            schema_table.insert(self.freq, ("FREQ", DataType::Float32));
+            schema_table.insert(self.freq, (FREQ, DataType::Float32));
         }
 
         if self.need_id {
-            schema_table.insert(self.snp_id, ("ID", DataType::Utf8));
+            schema_table.insert(self.snp_id, (ID, DataType::Utf8));
         }
 
         if self.need_pvalue {
-            schema_table.insert(self.pvalue, ("P", DataType::Float32));
+            schema_table.insert(self.pvalue, (PVALUE, DataType::Float32));
         }
 
         Ok(schema_table)
@@ -63,7 +73,7 @@ impl<'a> BetaArg<'a> {
         let file = File::open(self.weight_path)?;
         let mut first_line = "".to_string();
         BufReader::new(file).read_line(&mut first_line)?;
-        first_line = first_line.replace('\n', "").replace('\r', "");
+        first_line = first_line.replace(['\n', '\r'], "");
 
         // get required col
         let mut schema_table = self.get_schema_table()?;
@@ -74,7 +84,7 @@ impl<'a> BetaArg<'a> {
 
         // generate schema
         let mut field_vec = vec![];
-        for i in first_line.split('\t').into_iter() {
+        for i in first_line.split('\t') {
             let (colname, my_datatype) = match schema_table.remove(i) {
                 Some(v) => v.clone(),
                 None => (i, DataType::Utf8),
@@ -83,7 +93,7 @@ impl<'a> BetaArg<'a> {
         }
 
         // check if there is some column not found
-        if schema_table.len() > 0 {
+        if !schema_table.is_empty() {
             return Err(anyhow!(
                 "Required column not found in beta file {:?}",
                 schema_table.keys()
@@ -117,6 +127,6 @@ impl<'a> BetaArg<'a> {
             .has_header(true)
             .finish()?;
 
-        return Ok((beta, cols));
+        Ok((beta, cols))
     }
 }

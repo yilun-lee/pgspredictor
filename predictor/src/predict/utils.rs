@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use genoreader::meta::{FID, IID, PHENO};
 use ndarray::prelude::*;
 use polars::{
     prelude::{DataFrame, DataType, NamedFrom},
@@ -12,21 +13,9 @@ use crate::{
 
 fn missing_as_freq(freq: f32, swap_flag: bool) -> Box<dyn FnMut(f32) -> f32> {
     if swap_flag {
-        Box::new(move |x: f32| {
-            if x.is_nan() {
-                return freq;
-            } else {
-                return 2. - x;
-            }
-        })
+        Box::new(move |x: f32| if x.is_nan() { freq } else { 2. - x })
     } else {
-        Box::new(move |x: f32| {
-            if x.is_nan() {
-                return freq;
-            } else {
-                return x;
-            }
-        })
+        Box::new(move |x: f32| if x.is_nan() { freq } else { x })
     }
 }
 
@@ -51,16 +40,16 @@ pub fn process_gt(weights: &Weights, gt: &mut Array2<f32>) -> Result<()> {
             },
             MissingStrategy::Impute => {
                 // cal non na mean
-                let (non_na_count, sum) = gt.slice(s![.., cc]).into_iter().fold(
-                    (0. as f32, 0. as f32),
-                    |(mut n, mut s), x| {
-                        if !x.is_nan() {
-                            n += 1.;
-                            s += x;
-                        }
-                        (n, s)
-                    },
-                );
+                let (non_na_count, sum) =
+                    gt.slice(s![.., cc])
+                        .into_iter()
+                        .fold((0_f32, 0_f32), |(mut n, mut s), x| {
+                            if !x.is_nan() {
+                                n += 1.;
+                                s += x;
+                            }
+                            (n, s)
+                        });
                 if swap_flag {
                     2. - (sum / non_na_count)
                 } else {
@@ -82,10 +71,14 @@ pub fn score_to_frame(
     score: Array2<f32>,
     score_names: &Vec<String>,
 ) -> Result<DataFrame> {
-    let mut my_columns = vec![fam.column("FID").cloned()?, fam.column("IID").cloned()?];
-    for i in 0..score_names.len() {
+    let mut my_columns = vec![
+        fam.column(FID).cloned()?,
+        fam.column(IID).cloned()?,
+        fam.column(PHENO).cloned()?,
+    ];
+    for (i, score_name) in score_names.iter().enumerate() {
         let my_score: Vec<f32> = score.slice(s![.., i]).to_vec();
-        my_columns.push(Series::new(&score_names[i], my_score))
+        my_columns.push(Series::new(score_name, my_score))
     }
     let score = DataFrame::new(my_columns)?;
     Ok(score)
@@ -93,11 +86,12 @@ pub fn score_to_frame(
 
 pub fn get_empty_score(score_names: &Vec<String>) -> Result<DataFrame> {
     let mut my_columns: Vec<Series> = vec![
-        Series::new_empty("FID", &DataType::Utf8),
-        Series::new_empty("IID", &DataType::Utf8),
+        Series::new_empty(FID, &DataType::Utf8),
+        Series::new_empty(IID, &DataType::Utf8),
+        Series::new_empty(PHENO, &DataType::Float32),
     ];
-    for i in 0..score_names.len() {
-        my_columns.push(Series::new_empty(&score_names[i], &DataType::Float32))
+    for score_name in score_names {
+        my_columns.push(Series::new_empty(score_name, &DataType::Float32))
     }
     let score = DataFrame::new(my_columns)?;
     Ok(score)

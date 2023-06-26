@@ -49,7 +49,7 @@ mod tests {
                 if x.is_nan() {
                     return 100.;
                 }
-                return x;
+                x
             });
         }
         println!("{}", arr);

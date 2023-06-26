@@ -49,11 +49,11 @@ impl BedReaderNoLib {
         let sid_all: Vec<isize> = (0..aa).collect();
 
         Ok(BedReaderNoLib {
-            bed_path: bed_path,
-            fam: fam,
-            bim: bim,
-            iid_count: iid_count,
-            sid_count: sid_count,
+            bed_path,
+            fam,
+            bim,
+            iid_count,
+            sid_count,
             iid_idx: iid_all,
             sid_idx: sid_all,
         })
@@ -84,8 +84,8 @@ impl ReadGenotype for BedReaderNoLib {
             self.iid_count,
             self.sid_count,
             true,
-            &iid,
-            &sid,
+            iid,
+            sid,
             f32::NAN,
             available_parallelism()?.get(),
             &mut val.view_mut(),
@@ -99,7 +99,7 @@ impl ReadGenotype for BedReaderNoLib {
             let aa = self.fam.filter(&mask)?;
             return Ok(aa);
         }
-        return Ok(self.fam.clone());
+        Ok(self.fam.clone())
     }
     fn get_snp(&self, sid: &Self::GenoIdx, inv: bool) -> Result<DataFrame> {
         if let Some(v) = sid {
@@ -107,7 +107,7 @@ impl ReadGenotype for BedReaderNoLib {
             let aa = self.bim.filter(&mask)?;
             return Ok(aa);
         }
-        return Ok(self.bim.clone());
+        Ok(self.bim.clone())
     }
 }
 

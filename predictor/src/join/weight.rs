@@ -1,11 +1,13 @@
 use anyhow::Result;
+use betareader::FREQ;
+use genoreader::meta::IDX;
 use ndarray::Array2;
 use polars::{
     lazy::dsl::lit,
     prelude::{DataFrame, Float32Type, IntoLazy},
 };
 
-use crate::meta::MissingStrategy;
+use crate::meta::{MissingStrategy, STATUS};
 
 /// Store the matched snp and weight into a Weight obj, which contain and
 /// preprocessanything needed for prediction.
@@ -35,30 +37,24 @@ impl Weights {
             .to_ndarray::<Float32Type>()?;
         // get sid index in bfile
         let sid_idx: Vec<isize> = matched_beta
-            .column("IDX")?
+            .column(IDX)?
             .u32()?
             .into_no_null_iter()
             .map(|v| v as isize)
             .collect();
         // if no freq, add freq
-        if let Err(_) = matched_beta.column("FREQ") {
+        if matched_beta.column(FREQ).is_err() {
             matched_beta = matched_beta
                 .lazy()
-                .with_column(lit(0. as f32).alias("FREQ"))
+                .with_column(lit(0_f32).alias(FREQ))
                 .collect()?;
         }
-        let freq_iter = matched_beta.column("FREQ")?.f32()?.into_iter();
+        let freq_iter = matched_beta.column(FREQ)?.f32()?.into_iter();
         let status_freq_vec: Vec<(Option<String>, Option<f32>)> = matched_beta
-            .column("STATUS")?
+            .column(STATUS)?
             .utf8()?
             .into_iter()
-            .map(|s| {
-                match s {
-                    Some(s) => Some(s.to_owned()),
-                    None => None,
-                }
-                .to_owned()
-            })
+            .map(|s| s.map(|s| s.to_owned()))
             .zip(freq_iter)
             .collect();
 

@@ -15,6 +15,8 @@ use std::ops::Add;
 
 use anyhow::{anyhow, Result};
 use betahandler::handle_beta;
+use betareader::{A1, CHR, ID, POS};
+use genoreader::meta::{ALT, IDX, REF};
 use polars::{
     lazy::dsl::{col, lit, when},
     prelude::{DataFrame, DataFrameJoinOps, IntoLazy, UniqueKeepStrategy},
@@ -22,7 +24,7 @@ use polars::{
 use serde::Serialize;
 use weight::Weights;
 
-use crate::meta::MetaArg;
+use crate::meta::{MetaArg, STATUS};
 /// constant for SNP match status.
 /// [GOOD] indicate that `A1 == ALT`
 /// [SWAP] indicate that `A1 == REF`, and genotype need to be swap
@@ -52,9 +54,9 @@ pub struct MatchStatus {
 impl MatchStatus {
     pub fn new(bfile_snp: usize, model_snp: usize, match_snp: usize) -> MatchStatus {
         MatchStatus {
-            bfile_snp: bfile_snp,
-            model_snp: model_snp,
-            match_snp: match_snp,
+            bfile_snp,
+            model_snp,
+            match_snp,
         }
     }
 
@@ -98,29 +100,29 @@ pub fn match_snp(
     let mut matched_beta: DataFrame;
     let identifier_cols: Vec<String>;
     if !meta_arg.match_id_flag {
-        matched_beta = bim
-            .select(["IDX", "CHR", "POS", "ALT", "REF"])?
-            .inner_join(&beta, ["CHR", "POS"], ["CHR", "POS"])?;
-        identifier_cols = vec!["CHR".to_string(), "POS".to_string(), "A1".to_string()];
-    } else {
         matched_beta =
-            bim.select(["IDX", "ID", "ALT", "REF"])?
-                .inner_join(&beta, ["ID"], ["ID"])?;
-        identifier_cols = vec!["ID".to_string(), "A1".to_string()];
+            bim.select([IDX, CHR, POS, ALT, REF])?
+                .inner_join(&beta, [CHR, POS], [CHR, POS])?;
+        identifier_cols = vec![CHR.to_string(), POS.to_string(), A1.to_string()];
+    } else {
+        matched_beta = bim
+            .select([IDX, ID, ALT, REF])?
+            .inner_join(&beta, [ID], [ID])?;
+        identifier_cols = vec![ID.to_string(), A1.to_string()];
     }
 
     // filter weights
     matched_beta = matched_beta
         .lazy()
         .with_column(
-            when(col("A1").eq(col("ALT")))
+            when(col(A1).eq(col(ALT)))
                 .then(lit(GOOD))
-                .when(col("A1").eq(col("REF")))
+                .when(col(A1).eq(col(REF)))
                 .then(lit(SWAP))
                 .otherwise(lit(NO_MATCH))
-                .alias("STATUS"),
+                .alias(STATUS),
         )
-        .filter(col("STATUS").eq(lit(NO_MATCH)).not())
+        .filter(col(STATUS).eq(lit(NO_MATCH)).not())
         .unique(Some(identifier_cols), UniqueKeepStrategy::First)
         .collect()?;
 

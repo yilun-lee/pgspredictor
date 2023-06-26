@@ -1,5 +1,5 @@
 use anyhow::Result;
-use betareader::BetaArg;
+use betareader::{BetaArg, A1, CHR, FREQ, ID, POS, PVALUE};
 use clap::{Args, Parser};
 use log::{debug, warn};
 use predictor::{
@@ -63,6 +63,10 @@ pub struct MyArgs {
     #[arg(long, default_value_t = false)]
     pub write_beta: bool,
 
+    /// whether to calculate correlation between PHENO and score
+    #[arg(short = 'E', long, default_value_t = false)]
+    pub eval_flag: bool,
+
     /// whether to output percentile and rank
     #[arg(short = 'P', long, default_value_t = false)]
     pub percentile_flag: bool,
@@ -83,27 +87,27 @@ pub struct MyArgs {
 #[derive(Args, Debug)]
 pub struct BetaCol {
     /// chromosome column for weight file
-    #[arg(long, default_value = "CHR")]
+    #[arg(long, default_value = CHR)]
     pub chrom: String,
 
     /// position column for weight file
-    #[arg(long, default_value = "POS")]
+    #[arg(long, default_value = POS)]
     pub pos: String,
 
     /// id column for weight file
-    #[arg(long, default_value = "ID")]
+    #[arg(long, default_value = ID)]
     pub snp_id: String,
 
     /// a1 column for weight file
-    #[arg(long, default_value = "A1")]
+    #[arg(long, default_value = A1)]
     pub a1: String,
 
     /// freq column for weight file
-    #[arg(long, default_value = "FREQ")]
+    #[arg(long, default_value = FREQ)]
     pub freq: String,
 
     /// pvalue column for weight file, required when --q-ranges is specifeid
-    #[arg(long, default_value = "P")]
+    #[arg(long, default_value = PVALUE)]
     pub pvalue: String,
 }
 
@@ -137,17 +141,17 @@ impl MyArgs {
             // flag
             need_freq: matches!(missing_strategy, MissingStrategy::Freq),
             need_id: self.match_id_flag,
-            need_pvalue: matches!(self.q_ranges, Some(_)),
+            need_pvalue: self.q_ranges.is_some(),
         };
         let qragne_or_score = match &self.q_ranges {
-            Some(v) => QrangeOrScorenames::QRange(QRange::new(&v, &self.score_names)?),
+            Some(v) => QrangeOrScorenames::QRange(QRange::new(v, &self.score_names)?),
             None => QrangeOrScorenames::ScoreNameRaws(&self.score_names),
         };
         let meta_arg = MetaArg {
             batch_size: self.batch_size,
             thread_num: self.thread_num,
             match_id_flag: self.match_id_flag,
-            missing_strategy: missing_strategy,
+            missing_strategy,
             out_prefix: &self.out_prefix,
             q_range_enum: qragne_or_score,
         };
