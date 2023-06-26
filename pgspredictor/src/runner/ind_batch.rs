@@ -6,7 +6,7 @@ use genoreader::BedReaderNoLib;
 use log::debug;
 use polars::prelude::DataFrame;
 use predictor::{
-    join::Weights,
+    join::weight::Weights,
     meta::MetaArg,
     predict::{cal_scores, get_empty_score},
 };
@@ -21,14 +21,14 @@ pub fn cal_score_batch_ind_single(
         num_batches += 1
     }
 
-    let mut result = get_empty_score(&meta_arg.score_names)?;
+    let mut result = get_empty_score(&meta_arg.get_score_names(false))?;
     for i in 0..num_batches {
         let score = cal_scores(
             &weights,
             i,
             meta_arg.batch_size,
             &bed,
-            &meta_arg.score_names,
+            &&meta_arg.get_score_names(false),
         )?;
         result = result.vstack(&score)?;
         debug!("Complete {}/{} batch", i + 1, num_batches);
@@ -83,7 +83,7 @@ pub fn cal_score_batch_ind_par(
     // init worker
     let weights = Arc::new(weights);
     let bed = Arc::new(bed.clone());
-    let score_names = Arc::new(meta_arg.score_names.clone());
+    let score_names = Arc::new(meta_arg.get_score_names(false).clone());
 
     for _ in 0..meta_arg.thread_num {
         let mut my_worker = ThreadWorkerBatchInd {

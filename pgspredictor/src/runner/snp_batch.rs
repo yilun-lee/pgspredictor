@@ -8,18 +8,20 @@ use ndarray::Array2;
 //use ndarray::prelude::*;
 use polars::prelude::{read_impl::OwnedBatchedCsvReader, DataFrame};
 use predictor::{
-    join::{match_snp, MatchStatus, Weights},
+    join::{match_snp, weight::Weights, MatchStatus},
     meta::MetaArg,
     predict::{cal_score_array, score_to_frame},
 };
 
 use crate::runner::post::write_beta;
 
+#[allow(unused_variables)]
 pub fn cal_score_batch_snp_single(
     meta_arg: &MetaArg,
     cols: Vec<String>,
     mut beta_batch_reader: OwnedBatchedCsvReader,
     bed: BedReaderNoLib,
+    write_match: bool,
 ) -> Result<(DataFrame, MatchStatus)> {
     // to avoid of binding
     let iid_idx = &None;
@@ -27,6 +29,7 @@ pub fn cal_score_batch_snp_single(
     let mut matched_beta: DataFrame;
     let mut new_match_status: MatchStatus;
     let mut weights: Weights;
+    let score_names: Vec<String>;
     // init
     let mut match_status = MatchStatus::new_empty();
     let mut score_sum: Option<Array2<f32>> = None;
@@ -42,7 +45,11 @@ pub fn cal_score_batch_snp_single(
         (weights, new_match_status, matched_beta) = match match_snp(meta_arg, &cols, &bed.bim, beta)
         {
             Ok(v) => v,
-            Err(_) => continue,
+            // TODO -> Classify Error
+            Err(e) => {
+                debug!("{}", e);
+                continue;
+            }
         };
         // add match_status
         match_status = match_status + new_match_status;
@@ -68,7 +75,7 @@ pub fn cal_score_batch_snp_single(
     };
     // score for frame
     let batch_fam = bed.get_ind(iid_idx, false)?;
-    let score_frame = score_to_frame(&batch_fam, score_sum, &meta_arg.score_names)?;
+    let score_frame = score_to_frame(&batch_fam, score_sum, &meta_arg.get_score_names(false))?;
 
     Ok((score_frame, match_status))
 }
@@ -120,6 +127,7 @@ pub fn cal_score_batch_snp_par(
     cols: Vec<String>,
     mut beta_batch_reader: OwnedBatchedCsvReader,
     bed: BedReaderNoLib,
+    write_match: bool,
 ) -> Result<(DataFrame, MatchStatus)> {
     let (input_sender, input_receiver) = bounded(meta_arg.thread_num * 2);
     let (output_sender, output_receiver) = unbounded();
@@ -163,7 +171,7 @@ pub fn cal_score_batch_snp_par(
 
         // collect result untils output_sender is terminated
         let (score_sum, match_status) =
-            join_threads_collect_result(output_receiver, meta_arg.out_prefix)?;
+            join_threads_collect_result(output_receiver, meta_arg.out_prefix, write_match)?;
         // join
         join_thread_vec(thread_vec)?;
 
@@ -172,7 +180,7 @@ pub fn cal_score_batch_snp_par(
 
     // score to dataframe
     let batch_fam = bed.get_ind(&None, false)?;
-    let score_frame = score_to_frame(&batch_fam, score_sum, meta_arg.score_names)?;
+    let score_frame = score_to_frame(&batch_fam, score_sum, &meta_arg.get_score_names(false))?;
 
     Ok((score_frame, match_status))
 }
@@ -180,6 +188,7 @@ pub fn cal_score_batch_snp_par(
 fn join_threads_collect_result(
     output_receiver: Receiver<(Array2<f32>, MatchStatus, DataFrame)>,
     out_prefix: &str,
+    write_match: bool,
 ) -> Result<(Array2<f32>, MatchStatus)> {
     let mut match_status = MatchStatus::new_empty();
     let mut score_sum: Option<Array2<f32>> = None;
@@ -193,10 +202,12 @@ fn join_threads_collect_result(
             None => Some(score),
         };
         // write beta
-        if cc == 0 {
-            write_beta(&mut matched_beta, out_prefix, false)?;
-        } else {
-            write_beta(&mut matched_beta, out_prefix, true)?;
+        if write_match {
+            if cc == 0 {
+                write_beta(&mut matched_beta, out_prefix, false)?;
+            } else {
+                write_beta(&mut matched_beta, out_prefix, true)?;
+            }
         }
         cc += 1;
     }

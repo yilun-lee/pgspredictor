@@ -9,18 +9,20 @@
 //! corresponding to 1 bfile snp, we just get unique combination of POS, CHR and
 //! A1. This is fine since two bfile snp both got the A1 allele and they should
 //! be identical in the distribution of A1 allele.
+pub mod betahandler;
+pub mod weight;
 use std::ops::Add;
 
 use anyhow::{anyhow, Result};
-use ndarray::Array2;
+use betahandler::handle_beta;
 use polars::{
-    lazy::dsl::{all_exprs, col, lit, when},
-    prelude::{DataFrame, DataFrameJoinOps, Float32Type, IntoLazy, UniqueKeepStrategy},
+    lazy::dsl::{col, lit, when},
+    prelude::{DataFrame, DataFrameJoinOps, IntoLazy, UniqueKeepStrategy},
 };
 use serde::Serialize;
+use weight::Weights;
 
-use crate::meta::{MetaArg, MissingStrategy};
-
+use crate::meta::MetaArg;
 /// constant for SNP match status.
 /// [GOOD] indicate that `A1 == ALT`
 /// [SWAP] indicate that `A1 == REF`, and genotype need to be swap
@@ -87,15 +89,11 @@ pub fn match_snp(
     meta_arg: &MetaArg,
     my_cols: &Vec<String>,
     bim: &DataFrame,
-    mut beta: DataFrame,
+    beta: DataFrame,
 ) -> Result<(Weights, MatchStatus, DataFrame)> {
     // filter beta
     // https://stackoverflow.com/questions/76437931/rust-polars-selecting-columns-after-applying-filter-on-rows-of-a-dataframe
-    beta = beta
-        .select(my_cols)?
-        .lazy()
-        .filter(all_exprs([col("*").is_not_null()]))
-        .collect()?;
+    let beta = handle_beta(beta, &meta_arg.q_range_enum, my_cols)?;
     // match by id or chr pos
     let mut matched_beta: DataFrame;
     let identifier_cols: Vec<String>;
@@ -138,70 +136,8 @@ pub fn match_snp(
     // create weight object
     let weights_obj = Weights::new(
         matched_beta.clone(),
-        meta_arg.score_names,
+        meta_arg.get_score_names(false).to_vec(),
         meta_arg.missing_strategy,
     )?;
     Ok((weights_obj, match_status, matched_beta))
-}
-
-/// Store the matched snp and weight into a Weight obj, which contain and
-/// preprocessanything needed for prediction.
-#[derive(Clone, Debug)]
-pub struct Weights {
-    /// The 2d weight matrix
-    pub beta_values: Array2<f32>,
-    /// snp idx for bed that is matched with beta_values
-    pub sid_idx: Vec<isize>,
-    /// StATUS and FREQ vec, FREQ may be empty
-    pub status_freq_vec: Vec<(Option<String>, Option<f32>)>,
-    /// missing strategy for fill missing value
-    pub missing_strategy: MissingStrategy,
-}
-
-impl Weights {
-    fn new(
-        mut matched_beta: DataFrame,
-        score_names: &Vec<String>,
-        missing_strategy: MissingStrategy,
-    ) -> Result<Weights> {
-        // weights
-        let beta_values = matched_beta
-            .select(score_names)?
-            .to_ndarray::<Float32Type>()?;
-        // get sid index in bfile
-        let sid_idx: Vec<isize> = matched_beta
-            .column("IDX")?
-            .u32()?
-            .into_no_null_iter()
-            .map(|v| v as isize)
-            .collect();
-        // if no freq, add freq
-        if let Err(_) = matched_beta.column("FREQ") {
-            matched_beta = matched_beta
-                .lazy()
-                .with_column(lit(0. as f32).alias("FREQ"))
-                .collect()?;
-        }
-        let freq_iter = matched_beta.column("FREQ")?.f32()?.into_iter();
-        let status_freq_vec: Vec<(Option<String>, Option<f32>)> = matched_beta
-            .column("STATUS")?
-            .utf8()?
-            .into_iter()
-            .map(|s| {
-                match s {
-                    Some(s) => Some(s.to_owned()),
-                    None => None,
-                }
-                .to_owned()
-            })
-            .zip(freq_iter)
-            .collect();
-
-        Ok(Weights {
-            beta_values,
-            sid_idx,
-            status_freq_vec,
-            missing_strategy,
-        })
-    }
 }

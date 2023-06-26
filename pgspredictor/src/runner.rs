@@ -18,21 +18,26 @@ use predictor::{
 };
 use snp_batch::{cal_score_batch_snp_par, cal_score_batch_snp_single};
 
-use crate::{args::Args, runner::post::write_beta};
+use crate::{args::MyArgs, runner::post::write_beta};
 
 /// The [Runner] struct. Basically from [Args]. [BetaArg] is for argument to
 /// load weights. [MetaArg] is runner argument such as batch_size.
 pub struct Runner<'a> {
     beta_arg: BetaArg<'a>,
     meta_arg: MetaArg<'a>,
+    write_match: bool,
 }
 
 impl Runner<'_> {
     /// Init from [Args]
-    pub fn from_args(cli: &Args) -> Result<Runner> {
+    pub fn from_args(cli: &MyArgs) -> Result<Runner> {
         let (beta_arg, meta_arg) = cli.into_struct()?;
 
-        Ok(Runner { beta_arg, meta_arg })
+        Ok(Runner {
+            beta_arg,
+            meta_arg,
+            write_match: cli.write_beta,
+        })
     }
 
     /// Run batch on sample axis. For single thread ->
@@ -55,7 +60,9 @@ impl Runner<'_> {
             score_frame = cal_score_batch_ind_par(&self.meta_arg, weights, bed)?;
         }
         // save beta
-        write_beta(&mut match_beta, self.meta_arg.out_prefix, false)?;
+        if self.write_match {
+            write_beta(&mut match_beta, self.meta_arg.out_prefix, false)?;
+        }
         Ok((score_frame, match_status))
     }
 
@@ -68,11 +75,21 @@ impl Runner<'_> {
         let score_frame: DataFrame;
         let match_status: MatchStatus;
         if self.meta_arg.thread_num == 1 {
-            (score_frame, match_status) =
-                cal_score_batch_snp_single(&self.meta_arg, cols, beta_batch_reader, bed)?;
+            (score_frame, match_status) = cal_score_batch_snp_single(
+                &self.meta_arg,
+                cols,
+                beta_batch_reader,
+                bed,
+                self.write_match,
+            )?;
         } else {
-            (score_frame, match_status) =
-                cal_score_batch_snp_par(&self.meta_arg, cols, beta_batch_reader, bed)?;
+            (score_frame, match_status) = cal_score_batch_snp_par(
+                &self.meta_arg,
+                cols,
+                beta_batch_reader,
+                bed,
+                self.write_match,
+            )?;
         }
         Ok((score_frame, match_status))
     }

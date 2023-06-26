@@ -6,7 +6,7 @@ use ndarray::Array2;
 use polars::prelude::DataFrame;
 
 use super::utils::{process_gt, score_to_frame};
-use crate::join::Weights;
+use crate::join::weight::Weights;
 
 pub fn cal_scores(
     weights: &Weights,

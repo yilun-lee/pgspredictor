@@ -1,8 +1,11 @@
 use anyhow::Result;
 use betareader::BetaArg;
-use clap::Parser;
+use clap::{Args, Parser};
 use log::{debug, warn};
-use predictor::meta::{MetaArg, MissingStrategy};
+use predictor::{
+    join::betahandler::QRange,
+    meta::{MetaArg, MissingStrategy, QrangeOrScorenames},
+};
 
 /// Command argument
 #[derive(Parser, Debug)]
@@ -12,13 +15,12 @@ use predictor::meta::{MetaArg, MissingStrategy};
     version = "0.1.0", 
     about = "A pgs predictor written in rust", long_about = None)]
 #[command(next_line_help = true)]
-pub struct Args {
+#[command(propagate_version = true)]
+pub struct MyArgs {
     /// weight path, should be a tsv file
-    #[arg(short = 'm', long)]
     pub weight_path: String,
 
     /// path to plink bed files
-    #[arg(short, long)]
     pub bed_path: String,
 
     /// output prefix
@@ -37,22 +39,29 @@ pub struct Args {
     #[arg(short = 'B', long, default_value_t = 10000)]
     pub batch_size: usize,
 
+    /// whether to match by id instead of match by pos and chrom
+    #[arg(long, default_value_t = false)]
+    pub match_id_flag: bool,
+
+    /// whether to show log, use -v -vv -vvv to present increase log level
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    pub verbose: u8,
+
+    /// whether to batch by ind, default is batch by snp
+    #[arg(long, default_value_t = false)]
+    pub batch_ind: bool,
+
+    #[command(flatten)]
+    pub beta_col: BetaCol,
+
     /// Strategy to deal with missing value in genotype. Should be one of the
     /// following: Freq, Impute and Zero
     #[arg(short = 'M', long, default_value = "Impute")]
     pub missing_strategy: String,
 
-    /// whether to match by id instead of match by pos and chrom
+    /// whether to write matched snp and related information to *.beta.csv
     #[arg(long, default_value_t = false)]
-    pub match_id_flag: bool,
-
-    /// whether show log
-    #[arg(short, long, default_value_t = false)]
-    pub verbose: bool,
-
-    /// whether to batch by snp, default is batch by ind
-    #[arg(long, default_value_t = false)]
-    pub batch_snp: bool,
+    pub write_beta: bool,
 
     /// whether to output percentile and rank
     #[arg(short = 'P', long, default_value_t = false)]
@@ -61,9 +70,18 @@ pub struct Args {
     /// path to rank file produce by pgs-predictor. RANK as the first column,
     /// which is 0~100, and the other column are score names. If specified,
     /// percentiles of sample scores are interpolated based on the rank.
-    #[arg(short = 'r', long)]
+    #[arg(short = 'R', long)]
     pub rank_path: Option<String>,
 
+    /// q range file, a headerless tsv file consisted of three columns:
+    /// **name**, **from** and **to**, used in filtering p value for
+    /// weights.
+    #[arg(short = 'Q', long)]
+    pub q_ranges: Option<String>,
+}
+
+#[derive(Args, Debug)]
+pub struct BetaCol {
     /// chromosome column for weight file
     #[arg(long, default_value = "CHR")]
     pub chrom: String,
@@ -83,15 +101,19 @@ pub struct Args {
     /// freq column for weight file
     #[arg(long, default_value = "FREQ")]
     pub freq: String,
+
+    /// pvalue column for weight file, required when --q-ranges is specifeid
+    #[arg(long, default_value = "P")]
+    pub pvalue: String,
 }
 
-impl Args {
-    /// Convert [Args] into [BetaArg] and [MetaArg]
+impl MyArgs {
+    /// Convert [MyArgs] into [BetaArg] and [MetaArg]
     /// [BetaArg] is for reading of beta from [betareader]
     pub fn into_struct(&self) -> Result<(BetaArg, MetaArg)> {
         // some check
         let missing_strategy = MissingStrategy::new(&self.missing_strategy)?;
-        if matches!(missing_strategy, MissingStrategy::Impute) && !self.batch_snp {
+        if matches!(missing_strategy, MissingStrategy::Impute) && self.batch_ind {
             warn!(
                 "It is recommended to specify --batch-snp with --missing-strategy \"Impute\". \
                  Since batching on sample cannot calculate complete freq informations. Or you can \
@@ -102,23 +124,32 @@ impl Args {
         debug!("Bfile: {}", &self.bed_path);
 
         let beta_arg = BetaArg {
-            chrom: &self.chrom,
-            pos: &self.pos,
-            a1: &self.a1,
-            freq: &self.freq,
-            snp_id: &self.snp_id,
+            // col
+            chrom: &self.beta_col.chrom,
+            pos: &self.beta_col.pos,
+            a1: &self.beta_col.a1,
+            freq: &self.beta_col.freq,
+            snp_id: &self.beta_col.snp_id,
+            pvalue: &self.beta_col.pvalue,
+            // misc
             score_names: &self.score_names,
             weight_path: &self.weight_path,
+            // flag
             need_freq: matches!(missing_strategy, MissingStrategy::Freq),
             need_id: self.match_id_flag,
+            need_pvalue: matches!(self.q_ranges, Some(_)),
+        };
+        let qragne_or_score = match &self.q_ranges {
+            Some(v) => QrangeOrScorenames::QRange(QRange::new(&v, &self.score_names)?),
+            None => QrangeOrScorenames::ScoreNameRaws(&self.score_names),
         };
         let meta_arg = MetaArg {
-            score_names: &self.score_names,
             batch_size: self.batch_size,
             thread_num: self.thread_num,
             match_id_flag: self.match_id_flag,
             missing_strategy: missing_strategy,
             out_prefix: &self.out_prefix,
+            q_range_enum: qragne_or_score,
         };
         // bed_path and out_path are still only in self, they should not belong to meta
         // and they should only be access in main

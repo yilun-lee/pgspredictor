@@ -2,45 +2,33 @@
 
 mod args;
 mod runner;
+mod utils;
 
-use args::Args;
+use args::MyArgs;
 use clap::Parser;
 use env_logger::Builder;
 use genoreader::BedReaderNoLib;
-use log::{debug, info, LevelFilter};
+use log::{debug, info};
 use polars::{export::chrono, prelude::DataFrame};
 use predictor::join::MatchStatus;
 
-use crate::runner::{post::PgsResult, Runner};
-
-fn print_run_config(cli: &Args) {
-    let aa: &str;
-    if cli.batch_snp {
-        aa = "snp";
-    } else {
-        aa = "ind";
-    }
-    info!(
-        "Run with batch size {} and {} threads along {}",
-        cli.batch_size, cli.thread_num, aa
-    );
-}
+use crate::{
+    runner::{post::PgsResult, Runner},
+    utils::{match_verbose, print_run_config},
+};
 
 fn main_fn() {
     // parse
-    let cli = Args::parse();
+    let cli = MyArgs::parse();
     // get logger
-    if !cli.verbose {
-        Builder::new().filter_level(LevelFilter::Warn).init();
-    } else {
-        Builder::new().filter_level(LevelFilter::Debug).init();
-    }
+    let my_level = match_verbose(cli.verbose);
+    Builder::new().filter_level(my_level).init();
     let time_stamp = chrono::Utc::now();
     info!("Start pgs-predictor on {time_stamp}");
 
     // read bed
     let bed = BedReaderNoLib::new(&cli.bed_path).unwrap();
-    info!(
+    debug!(
         "Successfully load bfile with {} snp and {} ind",
         &bed.sid_count, &bed.iid_count
     );
@@ -51,11 +39,15 @@ fn main_fn() {
     // batch by snp or ind
     let mut scores: DataFrame;
     let match_status: MatchStatus;
-    if cli.batch_snp {
+    if !cli.batch_ind {
         (scores, match_status) = runner.run_batch_snp(bed).unwrap();
     } else {
         (scores, match_status) = runner.run_batch_ind(bed).unwrap();
     }
+    info!(
+        "There are {} snps matched between bfile ({} snp) and beta ({} snp)",
+        match_status.match_snp, match_status.bfile_snp, match_status.model_snp
+    );
     debug!("{}", scores);
 
     // write

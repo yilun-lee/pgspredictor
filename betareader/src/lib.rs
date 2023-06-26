@@ -16,19 +16,24 @@ use polars::{
 
 #[derive(Debug)]
 pub struct BetaArg<'a> {
+    // col
     pub chrom: &'a str,
     pub pos: &'a str,
     pub a1: &'a str,
     pub freq: &'a str,
     pub snp_id: &'a str,
+    pub pvalue: &'a str,
+    // misc
     pub score_names: &'a Vec<String>,
     pub weight_path: &'a str,
+    // flag
     pub need_freq: bool,
     pub need_id: bool,
+    pub need_pvalue: bool,
 }
 
 impl<'a> BetaArg<'a> {
-    fn get_schema_table(&self, first_line: &str) -> Result<HashMap<&str, (&str, DataType)>> {
+    fn get_schema_table(&self) -> Result<HashMap<&str, (&str, DataType)>> {
         let mut schema_table = HashMap::new();
         schema_table.insert(self.chrom, ("CHR", DataType::Utf8));
         schema_table.insert(self.pos, ("POS", DataType::Int32));
@@ -38,12 +43,16 @@ impl<'a> BetaArg<'a> {
             schema_table.insert(i, (i, DataType::Float32));
         }
 
-        if self.need_freq || first_line.contains(self.freq) {
+        if self.need_freq {
             schema_table.insert(self.freq, ("FREQ", DataType::Float32));
         }
 
-        if self.need_id || first_line.contains(self.snp_id) {
+        if self.need_id {
             schema_table.insert(self.snp_id, ("ID", DataType::Utf8));
+        }
+
+        if self.need_pvalue {
+            schema_table.insert(self.pvalue, ("P", DataType::Float32));
         }
 
         Ok(schema_table)
@@ -57,7 +66,7 @@ impl<'a> BetaArg<'a> {
         first_line = first_line.replace('\n', "").replace('\r', "");
 
         // get required col
-        let mut schema_table = self.get_schema_table(&first_line)?;
+        let mut schema_table = self.get_schema_table()?;
         let cols: Vec<String> = schema_table
             .keys()
             .map(|v| v.to_owned().to_owned())
@@ -70,7 +79,6 @@ impl<'a> BetaArg<'a> {
                 Some(v) => v.clone(),
                 None => (i, DataType::Utf8),
             };
-
             field_vec.push(Field::new(colname, my_datatype))
         }
 

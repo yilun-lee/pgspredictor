@@ -13,7 +13,7 @@ First is the join of snp between genotype file and weights. Plink only care abou
 
 ##### Multiple models and percentils
 
-There may be multiple pgs model for inference on the same genotype. In plink, the solution is to write a bash script with loop. **pgs-predictor-rs** can infer multiple models at the same times. In addition to scores, **pgs-predictor-rs** output percentils, rank and match status, which will be very beneficial in the downstream analyis. Last but not the least, user can provided score distribution from reference population, **pgs-predictor-rs** can calulate percentile of the score of the predicted against reference population (WIP feature).
+There may be multiple pgs model for inference on the same genotype. **pgs-predictor-rs** can infer multiple models at the same times. In addition to scores, **pgs-predictor-rs** output percentils, rank and match status, which will be very beneficial in the downstream analyis. Last but not the least, user can provided score distribution from reference population, **pgs-predictor-rs** can calulate percentile of the score of the predicted against reference population (WIP feature).
 
 ##### Batch and multiprocessing
 

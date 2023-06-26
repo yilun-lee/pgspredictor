@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Result};
 
+use crate::join::betahandler::QRange;
+
 #[derive(Clone, Debug, Copy)]
 pub enum MissingStrategy {
     Impute,
@@ -25,11 +27,32 @@ impl MissingStrategy {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum QrangeOrScorenames<'a> {
+    QRange(QRange<'a>),
+    ScoreNameRaws(&'a Vec<String>),
+}
+
 pub struct MetaArg<'a> {
-    pub score_names: &'a Vec<String>,
     pub batch_size: usize,
     pub thread_num: usize,
     pub match_id_flag: bool,
     pub missing_strategy: MissingStrategy,
     pub out_prefix: &'a str,
+    pub q_range_enum: QrangeOrScorenames<'a>,
+}
+
+impl<'a> MetaArg<'a> {
+    pub fn get_score_names(&'a self, old_flag: bool) -> &'a Vec<String> {
+        match &self.q_range_enum {
+            QrangeOrScorenames::QRange(v) => {
+                if old_flag {
+                    return v.score_names_raw;
+                } else {
+                    return &v.score_names;
+                }
+            }
+            QrangeOrScorenames::ScoreNameRaws(v) => return v,
+        }
+    }
 }

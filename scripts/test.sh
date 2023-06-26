@@ -4,21 +4,30 @@ RUST_PRS="./target/release/predictor"
 hyperfine --warmup 3 -r 10 "${PLINK2}" "${RUST_PRS}"
 
 export RUST_BACKTRACE=1
-cargo build -p predictor
-./target/debug/predictor \
-    -m "data/input/Weights.tsv" \
-    -b "data/input/test" \
+cargo build -p pgspredictor
+./target/debug/pgspredictor \
+    "data/input/Weights.tsv" \
+    "data/input/test" \
     -o "data/output/test" \
     -T 1 -B 5 \
     -n "Lassosum" -n CandT -M Impute -P \
-    --batch-snp --rank-path data/output/test.rank.csv
+    --rank-path data/output/test.rank.csv -vv 
+
+./target/debug/pgspredictor \
+    "data/input/Weights.tsv" \
+    "data/input/test" \
+    -o "data/output/test" \
+    -T 1 -B 5 \
+    -n "Lassosum" -n CandT -M Impute -P \
+    --rank-path data/output/test.rank.csv -vv \
+    -Q data/input/test.range
 
 
 BFILE="/Users/sox/Desktop/AILAB_DATA/Data/CLU_DATA/rename"
 MODEL="/Users/sox/Desktop/AILAB_DATA/Data/PGS000099.tsv"
 
-cargo build -p predictor -r 
-./target/debug/predictor \
+cargo build -p pgspredictor -r 
+./target/debug/pgspredictor \
     -m ${MODEL} \
     -b ${BFILE} \
     -o /tmp/test \

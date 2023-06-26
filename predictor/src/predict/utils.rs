@@ -6,7 +6,7 @@ use polars::{
 };
 
 use crate::{
-    join::{Weights, SWAP},
+    join::{weight::Weights, SWAP},
     meta::MissingStrategy,
 };
 
