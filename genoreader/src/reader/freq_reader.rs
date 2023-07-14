@@ -87,12 +87,11 @@ impl FreqBedReader {
             None => &default_swap_vec,
         };
 
-        let val: Array2<f32>;
-        if let None = freq_vec {
-            val = self.bed_reader.read_to_ndarray(snp_idx, swap_vec)?;
+        let val = if freq_vec.is_none() {
+            self.bed_reader.read_to_ndarray(snp_idx, swap_vec)?
         } else {
-            val = self.bed_reader.read_to_ndarray_freq(snp_idx, swap_vec, freq_vec.unwrap())?;
-        }
+            self.bed_reader.read_to_ndarray_freq(snp_idx, swap_vec, freq_vec.unwrap())?
+        };
         Ok(val)
     }
 

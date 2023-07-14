@@ -10,11 +10,12 @@ fn nyp_higher_digit_u8(x: u8) -> u8 {
 
 pub fn nonmissing_mask_u8(x: u8) -> u8 {
     let x10 = nyp_higher_digit_u8(x) | nyp_lower_digit_u8(!x);
-    return x10 | (x10 << 1);
+    x10 | (x10 << 1)
 }
 //
 
 mod tests {
+    #[allow(unused_imports)]
     use super::nonmissing_mask_u8;
 
     #[test]

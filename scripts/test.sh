@@ -49,10 +49,9 @@ hyperfine --warmup 3 -r 10 \
     ${MODEL} \
     ${BFILE} \
     -o /tmp/test \
-    -T 1 -B 16000 \
-    -n PGS000099  -M Impute 
+    -T 5 -B 2000 \
+    -n PGS000099  -M Impute  --batch-ind
     " \
-    "plink2 --bfile ${BFILE} --threads 5 \
+    "plink2 --bfile ${BFILE}  \
     --score ${MODEL} 3 6 10 header cols=+scoresums ignore-dup-ids\
     --out /tmp/test"
-

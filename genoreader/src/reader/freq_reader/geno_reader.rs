@@ -10,11 +10,15 @@ use ndarray::{s, Array, Ix2, ArrayBase, ViewRepr, Dim};
 
 use crate::reader::read_bed_nolib::bed_crate::{open_and_check, try_div_4};
 
+#[allow(dead_code)]
 const BED_FILE_MAGIC1: u8 = 0x6C; // 0b01101100 or 'l' (lowercase 'L')
+#[allow(dead_code)]
 const BED_FILE_MAGIC2: u8 = 0x1B; // 0b00011011 or <esc>
 const CB_HEADER_U64: u64 = 3;
+#[allow(dead_code)]
 const CB_HEADER_USIZE: usize = 3;
 
+#[allow(dead_code)]
 pub struct BedSnpReader {
     pub reader: BufReader<File>,
     in_iid_count_div4_u64: u64,
@@ -69,7 +73,7 @@ impl BedSnpReader {
 
     fn read_snp(&mut self, sid_idx: u64) -> Result<Vec<u8>> {
         let mut bytes_vector: Vec<u8> = vec![0; self.in_iid_count_div4];
-        let pos: u64 = (sid_idx as u64) * self.in_iid_count_div4_u64 + CB_HEADER_U64; // "as" and math is safe because of early checks
+        let pos: u64 = sid_idx * self.in_iid_count_div4_u64 + CB_HEADER_U64; // "as" and math is safe because of early checks
         self.reader.seek(SeekFrom::Start(pos))?;
         self.reader.read_exact(&mut bytes_vector)?;
         Ok(bytes_vector)
@@ -79,7 +83,7 @@ impl BedSnpReader {
         if self.in_iid_count % 4 != 0 {
             val = val.slice(s![..self.in_iid_count, ..]).to_owned();
         }
-        return val; 
+        val
     }
 
     pub fn read_to_ndarray(
@@ -92,8 +96,8 @@ impl BedSnpReader {
 
         // read by each snp
         sid_idxs
-            .into_iter()
-            .zip(swap_vec.into_iter())
+            .iter()
+            .zip(swap_vec.iter())
             .zip(val.axis_iter_mut(ndarray::Axis(1)))
             .try_for_each(|((idx, swap_flag), col)| -> Result<()> {
                 // read
@@ -122,9 +126,9 @@ impl BedSnpReader {
 
         // read by each snp
         sid_idxs
-            .into_iter()
-            .zip(swap_vec.into_iter())
-            .zip(freq_vec.into_iter())
+            .iter()
+            .zip(swap_vec.iter())
+            .zip(freq_vec.iter())
             .zip(val.axis_iter_mut(ndarray::Axis(1)))
             .try_for_each(|(((idx, swap_flag), freq), col)| -> Result<()> {
                 // read
@@ -164,7 +168,7 @@ fn set_up_two_bits_to_value(count_a1: bool, missing_value: f32) -> [f32; 4] {
     }
 }
 
-fn byte_vec_to_freq(byte_vec: &Vec<u8>) -> f32 {
+fn byte_vec_to_freq(byte_vec: &[u8]) -> f32 {
     let (nonmissing_count, ones_count) = byte_vec.iter().fold(
         (0, 0),
         |(mut nonmissing_count, mut ones_count), byte| -> (u32, u32) {

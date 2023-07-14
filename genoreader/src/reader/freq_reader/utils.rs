@@ -7,7 +7,6 @@ pub fn create_mask_u32(
     inv: bool,
     data_frame: &DataFrame,
 ) -> Result<ChunkedArray<BooleanType>> {
-    let v: Vec<u32> = v.iter().map(|&e| e as u32).collect();
     let v: Series = Series::new("whatever", v);
     let mask = data_frame.column("IDX")?;
     let mask = match inv {

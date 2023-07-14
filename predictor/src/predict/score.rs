@@ -67,10 +67,7 @@ pub fn cal_score_array_freq_reader(
             reader.read_snp(&weights.sid_idx, Some(&stat_vec), Some(&freq_vec))?
         },
         MissingStrategy::Freq => {
-            let freq_vec: Vec<f32> = freq_vec.into_iter().map(|x| match x {
-                None => 0.,
-                Some(v) => v,
-            }).collect();
+            let freq_vec: Vec<f32> = freq_vec.into_iter().map(|x| x.unwrap_or(0.)).collect();
             reader.read_snp(&weights.sid_idx, Some(&stat_vec), Some(&freq_vec))?
         }
     };

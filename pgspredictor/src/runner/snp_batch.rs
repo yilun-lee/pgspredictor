@@ -83,6 +83,7 @@ pub fn cal_score_batch_snp_single(
     Ok((score_frame, match_status))
 }
 
+#[allow(clippy::redundant_allocation)]
 pub struct ThreadWorkerBatchSnp<'a> {
     // batch size
     pub batch_size: usize,

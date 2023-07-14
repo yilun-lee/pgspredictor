@@ -21,6 +21,7 @@ pub trait BedVal: Copy + Default + From<i8> + Debug + Sync + Send + Missing + Pa
 impl<T> BedVal for T where T: Copy + Default + From<i8> + Debug + Sync + Send + Missing + PartialEq {}
 
 #[allow(clippy::too_many_arguments)]
+#[allow(unused_variables)]
 #[anyinput]
 pub fn read_no_alloc<TVal: BedVal>(
     path: AnyPath,

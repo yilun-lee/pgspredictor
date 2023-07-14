@@ -15,7 +15,7 @@ mod tests {
 
         let mut freq_bed_reader = FreqBedReader::new(bfile_set).unwrap();
 
-        let sid_idx: Vec<isize> = (0..(1000 as isize)).collect();
+        let sid_idx: Vec<isize> = (0..1000_isize).collect();
 
         let guard = pprof::ProfilerGuardBuilder::default()
             .frequency(1000)
@@ -47,7 +47,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let sid_idx: Vec<isize> = (0..(1000 as isize)).collect();
+        let sid_idx: Vec<isize> = (0..1000_isize).collect();
         let sid_idx: Option<Vec<isize>> = Some(sid_idx);
         let val = my_bed_reader.get_geno(&sid_idx, &None).unwrap();
         println!("{:?}", val);
