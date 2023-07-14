@@ -9,8 +9,15 @@ edition = "2021"
 #bed-reader = "0.2.34"
 polars = { version = "0.30.0", features = ["lazy", "ndarray"] }
 anyhow = "1.0.71"
-ndarray = { version = "0.15.6", features = ["rayon", "blas"] }
-blas-src = { version = "0.9", default-features = false,features = ["accelerate"] }
+ndarray = { version = "0.15.6", features = ["rayon"] }
 rayon = "*"
 anyinput = "*"
 thiserror = "*"
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports"] }
+pprof = { version = "0.11", features = ["flamegraph"] }
+
+[[bench]]
+name = "bed"
+harness = false

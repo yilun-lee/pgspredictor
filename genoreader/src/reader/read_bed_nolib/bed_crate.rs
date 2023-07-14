@@ -35,39 +35,37 @@ pub fn read_no_alloc<TVal: BedVal>(
                                             * elements. But slices cannot grow - they are just a
                                             * view into some vector. */
 ) -> Result<(), BedErrorPlus> {
-    create_pool(num_threads)?.install(|| {
-        let (buf_reader, bytes_vector) = open_and_check(path)?;
+    let (buf_reader, bytes_vector) = open_and_check(path)?;
 
-        match bytes_vector[2] {
-            0 => {
-                // We swap 'iid' and 'sid' and then reverse the axes.
-                let mut val_t = val.view_mut().reversed_axes();
-                internal_read_no_alloc(
-                    buf_reader,
-                    path,
-                    sid_count,
-                    iid_count,
-                    is_a1_counted,
-                    sid_index,
-                    iid_index,
-                    missing_value,
-                    &mut val_t,
-                )
-            }
-            1 => internal_read_no_alloc(
+    match bytes_vector[2] {
+        0 => {
+            // We swap 'iid' and 'sid' and then reverse the axes.
+            let mut val_t = val.view_mut().reversed_axes();
+            internal_read_no_alloc(
                 buf_reader,
                 path,
-                iid_count,
                 sid_count,
+                iid_count,
                 is_a1_counted,
-                iid_index,
                 sid_index,
+                iid_index,
                 missing_value,
-                val,
-            ),
-            _ => Err(BedError::BadMode(path_ref_to_string(path)).into()),
+                &mut val_t,
+            )?
         }
-    })?;
+        1 => internal_read_no_alloc(
+            buf_reader,
+            path,
+            iid_count,
+            sid_count,
+            is_a1_counted,
+            iid_index,
+            sid_index,
+            missing_value,
+            val,
+        )?,
+        _ => return Err(BedError::BadMode(path_ref_to_string(path)).into()),
+    }
     Ok(())
 }
 
@@ -98,7 +96,6 @@ fn internal_read_no_alloc<TVal: BedVal>(
     }
 
     // Check and precompute for each iid_index
-
     let (i_div_4_array, i_mod_4_times_2_array) =
         check_and_precompute_iid_index(in_iid_count, iid_index)?;
 
@@ -135,12 +132,11 @@ fn internal_read_no_alloc<TVal: BedVal>(
         // Zip in the column of the output array
         .zip(out_val.axis_iter_mut(nd::Axis(1)))
         // In parallel, decompress the iid info and put it in its column
-        .par_bridge() // This seems faster that parallel zip
         .try_for_each(|(bytes_vector_result, mut col)| match bytes_vector_result {
             Err(e) => Err(e),
             Ok(bytes_vector) => {
                 for out_iid_i in 0..iid_index.len() {
-                    let i_div_4 = i_div_4_array[out_iid_i];
+                    let i_div_4: usize = i_div_4_array[out_iid_i];
                     let i_mod_4_times_2 = i_mod_4_times_2_array[out_iid_i];
                     let genotype_byte: u8 = (bytes_vector[i_div_4] >> i_mod_4_times_2) & 0x03;
                     col[out_iid_i] = from_two_bits_to_value[genotype_byte as usize];
@@ -152,23 +148,13 @@ fn internal_read_no_alloc<TVal: BedVal>(
     Ok(())
 }
 
-fn create_pool(num_threads: usize) -> Result<rayon::ThreadPool, BedErrorPlus> {
-    match rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build()
-    {
-        Err(e) => Err(e.into()),
-        Ok(pool) => Ok(pool),
-    }
-}
-
 #[anyinput]
 fn path_ref_to_string(path: AnyPath) -> String {
     PathBuf::from(path).display().to_string()
 }
 
 #[anyinput]
-fn open_and_check(path: AnyPath) -> Result<(BufReader<File>, Vec<u8>), BedErrorPlus> {
+pub fn open_and_check(path: AnyPath) -> Result<(BufReader<File>, Vec<u8>), BedErrorPlus> {
     let mut buf_reader = BufReader::new(File::open(path)?);
     let mut bytes_vector: Vec<u8> = vec![0; CB_HEADER_USIZE];
     buf_reader.read_exact(&mut bytes_vector)?;
@@ -240,7 +226,7 @@ fn check_and_precompute_iid_index(
     Ok((i_div_4_array, i_mod_4_times_2_array))
 }
 
-trait Max {
+pub trait Max {
     fn max() -> Self;
 }
 
@@ -256,7 +242,7 @@ impl Max for u64 {
     }
 }
 
-fn try_div_4<T: Max + TryFrom<usize> + Sub<Output = T> + Div<Output = T> + Ord>(
+pub fn try_div_4<T: Max + TryFrom<usize> + Sub<Output = T> + Div<Output = T> + Ord>(
     in_iid_count: usize,
     in_sid_count: usize,
     cb_header: T,

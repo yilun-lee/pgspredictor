@@ -3,6 +3,11 @@ use std::sync::Arc;
 use anyhow::Result;
 use polars::prelude::{CsvReader, DataFrame, DataType, Field, Schema, SerReader};
 
+const FAM_FID: &str = "FID";
+const FAM_IID: &str = "IID";
+const SEX: &str = "SEX";
+const PHENO: &str = "PHENO";
+
 pub fn read_fam(fam_path: &str) -> Result<DataFrame> {
     let my_schmema = get_fam_schema();
     let mut fam = CsvReader::from_path(fam_path)?
@@ -30,12 +35,12 @@ pub fn read_bim(bim_path: &str) -> Result<DataFrame> {
 fn get_fam_schema() -> Schema {
     Schema::from_iter(
         vec![
-            Field::new("FID", DataType::Utf8),
-            Field::new("IID", DataType::Utf8),
+            Field::new(FAM_FID, DataType::Utf8),
+            Field::new(FAM_IID, DataType::Utf8),
             Field::new("P", DataType::Utf8),
             Field::new("M", DataType::Utf8),
-            Field::new("SEX", DataType::Int32),
-            Field::new("PHENO", DataType::Float32),
+            Field::new(SEX, DataType::Int32),
+            Field::new(PHENO, DataType::Float32),
         ]
         .into_iter(),
     )

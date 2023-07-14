@@ -1,5 +1,6 @@
 //pub mod read_bed;
 pub mod read_bed_nolib;
+pub mod freq_reader;
 mod test;
 
 use anyhow::Result;

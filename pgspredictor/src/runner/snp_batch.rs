@@ -2,7 +2,7 @@ use std::{sync::Arc, thread};
 
 use anyhow::{anyhow, Result};
 use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
-use genoreader::{BedReaderNoLib, ReadGenotype};
+use genoreader::{BedReaderNoLib, BfileSet, FreqBedReader, ReadGenotype};
 use log::debug;
 use ndarray::Array2;
 //use ndarray::prelude::*;
@@ -10,7 +10,7 @@ use polars::prelude::{read_impl::OwnedBatchedCsvReader, DataFrame};
 use predictor::{
     join::{match_snp, weight::Weights, MatchStatus},
     meta::MetaArg,
-    predict::{cal_score_array, score_to_frame},
+    predict::{cal_score_array_freq_reader, score_to_frame},
 };
 
 use crate::runner::post::write_beta;
@@ -34,6 +34,9 @@ pub fn cal_score_batch_snp_single(
     let mut match_status = MatchStatus::new_empty();
     let mut score_sum: Option<Array2<f32>> = None;
     let mut i = 0;
+
+    let bfileset = BfileSet::new(&bed.bed_path.replace(".bed", ""))?;
+    let mut geno_reader = FreqBedReader::new(Arc::new(bfileset))?;
     loop {
         // get beta
         beta = match beta_batch_reader.next_batches(1)? {
@@ -54,7 +57,7 @@ pub fn cal_score_batch_snp_single(
         // add match_status
         match_status = match_status + new_match_status;
         // cal score
-        let score = cal_score_array(&bed, &weights, iid_idx)?;
+        let score = cal_score_array_freq_reader(&mut geno_reader, &weights)?;
         score_sum = match score_sum {
             Some(v) => Some(v + score),
             None => Some(score),
@@ -84,7 +87,7 @@ pub struct ThreadWorkerBatchSnp<'a> {
     // batch size
     pub batch_size: usize,
     // re group
-    pub bed: Arc<BedReaderNoLib>,
+    pub bfileset: Arc<BfileSet>,
     // recieve from main string, file path
     pub cols: Arc<Vec<String>>,
     // recieve from main string, file path
@@ -97,9 +100,10 @@ pub struct ThreadWorkerBatchSnp<'a> {
 
 impl ThreadWorkerBatchSnp<'_> {
     fn run(&mut self) -> Result<()> {
-        let iid_idx = &None;
         let mut beta: DataFrame;
         let mut i = 0;
+
+        let mut geno_reader = FreqBedReader::new(self.bfileset.clone())?;
         loop {
             beta = match self.receiver.recv()? {
                 Some(v) => v,
@@ -108,9 +112,9 @@ impl ThreadWorkerBatchSnp<'_> {
             beta = beta.select(&*self.cols)?;
             // match snp
             let (weights, match_status, matched_beta) =
-                match_snp(&self.meta_arg, &self.cols, &self.bed.bim, beta)?;
+                match_snp(&self.meta_arg, &self.cols, &geno_reader.bfile_set.bim, beta)?;
             // cal score
-            let score = cal_score_array(&self.bed, &weights, iid_idx)?;
+            let score = cal_score_array_freq_reader(&mut geno_reader, &weights)?;
             self.sender
                 .send((score, match_status, matched_beta))
                 .unwrap();
@@ -132,9 +136,10 @@ pub fn cal_score_batch_snp_par(
     let (input_sender, input_receiver) = bounded(meta_arg.thread_num * 2);
     let (output_sender, output_receiver) = unbounded();
 
+
     // init worker
-    let bed = Arc::new(bed);
-    let cols = Arc::new(cols);
+    let bfileset = Arc::new(BfileSet::new(&bed.bed_path.replace(".bed", ""))?);
+    let cols: Arc<Vec<String>> = Arc::new(cols);
     let meta_arg = Arc::new(meta_arg.clone());
 
     let (score_sum, match_status) = thread::scope(|scope| -> Result<(Array2<f32>, MatchStatus)> {
@@ -142,7 +147,7 @@ pub fn cal_score_batch_snp_par(
         for _ in 0..meta_arg.thread_num {
             let mut my_worker = ThreadWorkerBatchSnp {
                 batch_size: meta_arg.batch_size,
-                bed: bed.clone(),
+                bfileset: bfileset.clone(),
                 cols: cols.clone(),
                 meta_arg: meta_arg.clone(),
                 receiver: input_receiver.clone(),

@@ -30,16 +30,19 @@ MODEL="/Users/sox/Desktop/AILAB_DATA/Data/PGS000099.tsv"
     ${BFILE} \
     -o /tmp/test \
     -T 4 -B 2000 \
-    -n PGS000099  -M Impute -E
+    -n PGS000099  -M Impute -E -vv
 
 
 cargo build -p pgspredictor -r 
+
+
+
 hyperfine --warmup 3 -r 10 \
     "./target/release/pgspredictor \
     ${MODEL} \
     ${BFILE} \
     -o /tmp/test \
-    -T 6 -B 2000 \
+    -T 5 -B 2000 \
     -n PGS000099  -M Impute 
     " \
     "./target/release/pgspredictor \
@@ -49,7 +52,7 @@ hyperfine --warmup 3 -r 10 \
     -T 1 -B 16000 \
     -n PGS000099  -M Impute 
     " \
-    "plink2 --bfile ${BFILE} \
+    "plink2 --bfile ${BFILE} --threads 5 \
     --score ${MODEL} 3 6 10 header cols=+scoresums ignore-dup-ids\
     --out /tmp/test"
 

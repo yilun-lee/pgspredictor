@@ -1,7 +1,7 @@
-mod bed_crate;
-mod bed_error;
-mod read_meta;
-use std::{path::Path, thread::available_parallelism};
+pub mod bed_crate;
+pub mod bed_error;
+pub mod read_meta;
+use std::path::Path;
 
 use anyhow::{anyhow, Result};
 use bed_crate::read_no_alloc;
@@ -29,7 +29,7 @@ pub struct BedReaderNoLib {
 impl BedReaderNoLib {
     pub fn new(bfile_path: &str) -> Result<BedReaderNoLib> {
         // get path
-        let bed_path = format!("{}.bed", bfile_path);
+        let bed_path: String = format!("{}.bed", bfile_path);
         let fam_path = format!("{}.fam", bfile_path);
         let bim_path = format!("{}.bim", bfile_path);
         if !Path::new(&bed_path).exists() {
@@ -68,7 +68,7 @@ impl ReadGenotype for BedReaderNoLib {
         sid: &Self::GenoIdx,
         iid: &Self::GenoIdx,
     ) -> Result<Array2<Self::GenoDtype>> {
-        let iid = match iid {
+        let iid: &Vec<isize> = match iid {
             Some(v) => v,
             None => &self.iid_idx,
         };
@@ -87,7 +87,7 @@ impl ReadGenotype for BedReaderNoLib {
             iid,
             sid,
             f32::NAN,
-            available_parallelism()?.get(),
+            1,
             &mut val.view_mut(),
         )?;
         Ok(val)
@@ -103,7 +103,7 @@ impl ReadGenotype for BedReaderNoLib {
     }
     fn get_snp(&self, sid: &Self::GenoIdx, inv: bool) -> Result<DataFrame> {
         if let Some(v) = sid {
-            let mask = create_mask(v, inv, &self.bim)?;
+            let mask: ChunkedArray<BooleanType> = create_mask(v, inv, &self.bim)?;
             let aa = self.bim.filter(&mask)?;
             return Ok(aa);
         }
@@ -111,7 +111,7 @@ impl ReadGenotype for BedReaderNoLib {
     }
 }
 
-fn create_mask(
+pub fn create_mask(
     v: &[isize],
     inv: bool,
     data_frame: &DataFrame,
