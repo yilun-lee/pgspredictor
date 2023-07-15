@@ -17,7 +17,7 @@ cargo build -p pgspredictor
     "data/input/Weights.tsv" \
     "data/input/test" \
     -o "data/output/test" \
-    -T 1 -B 5 \
+    -T 1 -B 5000 \
     -n "Lassosum" -n CandT -M Impute -P \
     --rank-path data/output/test.rank.csv -vv \
     -Q data/input/test.range -E --batch-ind
@@ -29,12 +29,20 @@ MODEL="/Users/sox/Desktop/AILAB_DATA/Data/PGS000099.tsv"
     ${MODEL} \
     ${BFILE} \
     -o /tmp/test \
-    -T 4 -B 2000 \
-    -n PGS000099  -M Impute -E -vv
+    -T 1 -B 10000 \
+    -n PGS000099  -M Impute -E -vv --batch-ind
 
 
 cargo build -p pgspredictor -r 
 
+BFILE="/Users/sox/Desktop/AILAB_DATA/Data/CLU_DATA/rename"
+MODEL="/Users/sox/Desktop/AILAB_DATA/Data/PGS000099.tsv"
+./target/release/pgspredictor \
+    ${MODEL} \
+    ${BFILE} \
+    -o /tmp/test \
+    -T 1 -B 10000 \
+    -n PGS000099  -M Impute -E 
 
 
 hyperfine --warmup 3 -r 10 \
@@ -42,14 +50,14 @@ hyperfine --warmup 3 -r 10 \
     ${MODEL} \
     ${BFILE} \
     -o /tmp/test \
-    -T 5 -B 2000 \
+    -T 1 -B 2000 \
     -n PGS000099  -M Impute 
     " \
     "./target/release/pgspredictor \
     ${MODEL} \
     ${BFILE} \
     -o /tmp/test \
-    -T 5 -B 2000 \
+    -T 1 -B 2000 \
     -n PGS000099  -M Impute  --batch-ind
     " \
     "plink2 --bfile ${BFILE}  \

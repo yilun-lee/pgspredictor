@@ -8,7 +8,7 @@ mod snp_batch;
 
 use anyhow::Result;
 use betareader::BetaArg;
-use genoreader::BedReaderNoLib;
+use genoreader::{BedReaderNoLib, BfileSet};
 use ind_batch::{cal_score_batch_ind_par, cal_score_batch_ind_single};
 use log::info;
 use polars::prelude::DataFrame;
@@ -68,7 +68,7 @@ impl Runner<'_> {
     /// Run batch on snp axis. For single thread ->
     /// [cal_score_batch_snp_single]. For multithread ->
     /// [cal_score_batch_snp_par]
-    pub fn run_batch_snp(&self, bed: BedReaderNoLib) -> Result<(DataFrame, MatchStatus)> {
+    pub fn run_batch_snp(&self, bfileset: BfileSet) -> Result<(DataFrame, MatchStatus)> {
         let (beta_batch_reader, cols) = self.beta_arg.batch_read(self.meta_arg.batch_size)?;
 
         let (score_frame, match_status) = if self.meta_arg.thread_num == 1 {
@@ -76,7 +76,7 @@ impl Runner<'_> {
                 &self.meta_arg,
                 cols,
                 beta_batch_reader,
-                bed,
+                bfileset,
                 self.write_match,
             )?
         } else {
@@ -84,7 +84,7 @@ impl Runner<'_> {
                 &self.meta_arg,
                 cols,
                 beta_batch_reader,
-                bed,
+                bfileset,
                 self.write_match,
             )?
         };

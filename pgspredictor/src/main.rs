@@ -4,10 +4,12 @@ mod args;
 mod runner;
 mod utils;
 
+use std::fs::File;
+
 use args::MyArgs;
 use clap::Parser;
 use env_logger::Builder;
-use genoreader::BedReaderNoLib;
+use genoreader::{BedReaderNoLib, BfileSet};
 use log::{debug, info};
 use polars::{export::chrono, prelude::DataFrame};
 use predictor::join::MatchStatus;
@@ -26,22 +28,26 @@ fn main_fn() {
     let time_stamp = chrono::Utc::now();
     info!("Start pgs-predictor on {time_stamp}");
 
-    // read bed
-    let bed = BedReaderNoLib::new(&cli.bed_path).unwrap();
-    debug!(
-        "Successfully load bfile with {} snp and {} ind",
-        &bed.sid_count, &bed.iid_count
-    );
-
     // parse to Runner obj
     let runner = Runner::from_args(&cli).unwrap();
     print_run_config(&cli);
+
     // batch by snp or ind
     let mut scores: DataFrame;
     let match_status: MatchStatus;
     if !cli.batch_ind {
-        (scores, match_status) = runner.run_batch_snp(bed).unwrap();
+        let bfileset = BfileSet::new(&cli.bed_path).unwrap();
+        debug!(
+            "Successfully load bfile with {} snp and {} ind",
+            &bfileset.bim.height(), &bfileset.fam.height()
+        );
+        (scores, match_status) = runner.run_batch_snp(bfileset).unwrap();
     } else {
+        let bed = BedReaderNoLib::new(&cli.bed_path).unwrap();
+        debug!(
+            "Successfully load bfile with {} snp and {} ind",
+            &bed.sid_count, &bed.iid_count
+        );
         (scores, match_status) = runner.run_batch_ind(bed).unwrap();
     }
     info!(
@@ -65,16 +71,17 @@ fn main_fn() {
 }
 
 fn main() {
-    /*
+    /* 
     let guard = pprof::ProfilerGuardBuilder::default()
         .frequency(1000)
         .blocklist(&["libc", "libgcc", "pthread", "vdso"])
         .build()
         .unwrap();
     */
+
     main_fn();
 
-    /*
+    /* 
     if let Ok(report) = guard.report().build() {
         let file = File::create("flamegraph.svg").unwrap();
         let mut options = pprof::flamegraph::Options::default();
@@ -82,4 +89,5 @@ fn main() {
         report.flamegraph_with_options(file, &mut options).unwrap();
     };
     */
+    
 }

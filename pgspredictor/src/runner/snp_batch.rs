@@ -2,7 +2,7 @@ use std::{sync::Arc, thread};
 
 use anyhow::{anyhow, Result};
 use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
-use genoreader::{BedReaderNoLib, BfileSet, FreqBedReader, ReadGenotype};
+use genoreader::{BfileSet, FreqBedReader};
 use log::debug;
 use ndarray::Array2;
 //use ndarray::prelude::*;
@@ -20,11 +20,10 @@ pub fn cal_score_batch_snp_single(
     meta_arg: &MetaArg,
     cols: Vec<String>,
     mut beta_batch_reader: OwnedBatchedCsvReader,
-    bed: BedReaderNoLib,
+    bfileset: BfileSet,
     write_match: bool,
 ) -> Result<(DataFrame, MatchStatus)> {
     // to avoid of binding
-    let iid_idx = &None;
     let mut beta: DataFrame;
     let mut matched_beta: DataFrame;
     let mut new_match_status: MatchStatus;
@@ -35,7 +34,6 @@ pub fn cal_score_batch_snp_single(
     let mut score_sum: Option<Array2<f32>> = None;
     let mut i = 0;
 
-    let bfileset = BfileSet::new(&bed.bed_path.replace(".bed", ""))?;
     let mut geno_reader = FreqBedReader::new(Arc::new(bfileset))?;
     loop {
         // get beta
@@ -45,7 +43,7 @@ pub fn cal_score_batch_snp_single(
         };
         beta = beta.select(&cols)?;
         // match snp
-        (weights, new_match_status, matched_beta) = match match_snp(meta_arg, &cols, &bed.bim, beta)
+        (weights, new_match_status, matched_beta) = match match_snp(meta_arg, &cols, &geno_reader.bfile_set.bim, beta)
         {
             Ok(v) => v,
             // TODO -> Classify Error
@@ -77,7 +75,7 @@ pub fn cal_score_batch_snp_single(
         None => return Err(anyhow!("score_sum is not initialized")),
     };
     // score for frame
-    let batch_fam = bed.get_ind(iid_idx, false)?;
+    let batch_fam = geno_reader.bfile_set.get_ind(None, false)?;
     let score_frame = score_to_frame(&batch_fam, score_sum, meta_arg.get_score_names(false))?;
 
     Ok((score_frame, match_status))
@@ -131,7 +129,7 @@ pub fn cal_score_batch_snp_par(
     meta_arg: &MetaArg,
     cols: Vec<String>,
     mut beta_batch_reader: OwnedBatchedCsvReader,
-    bed: BedReaderNoLib,
+    bfileset: BfileSet,
     write_match: bool,
 ) -> Result<(DataFrame, MatchStatus)> {
     let (input_sender, input_receiver) = bounded(meta_arg.thread_num * 2);
@@ -139,9 +137,9 @@ pub fn cal_score_batch_snp_par(
 
 
     // init worker
-    let bfileset = Arc::new(BfileSet::new(&bed.bed_path.replace(".bed", ""))?);
     let cols: Arc<Vec<String>> = Arc::new(cols);
     let meta_arg = Arc::new(meta_arg.clone());
+    let bfileset = Arc::new(bfileset);
 
     let (score_sum, match_status) = thread::scope(|scope| -> Result<(Array2<f32>, MatchStatus)> {
         let mut thread_vec: ThreadResVec = vec![];
@@ -185,7 +183,7 @@ pub fn cal_score_batch_snp_par(
     })?;
 
     // score to dataframe
-    let batch_fam = bed.get_ind(&None, false)?;
+    let batch_fam = bfileset.get_ind(None, false)?;
     let score_frame = score_to_frame(&batch_fam, score_sum, meta_arg.get_score_names(false))?;
 
     Ok((score_frame, match_status))
