@@ -14,6 +14,30 @@ pub fn nonmissing_mask_u8(x: u8) -> u8 {
 }
 //
 
+
+pub fn set_up_two_bits_to_value(count_a1: bool, missing_value: f32) -> [f32; 4] {
+    let homozygous_primary_allele = 0.; // Major Allele
+    let heterozygous_allele = 1.;
+    let homozygous_secondary_allele = 2.; // Minor Allele
+
+    if count_a1 {
+        [
+            homozygous_secondary_allele, // look-up 0
+            missing_value,               // look-up 1
+            heterozygous_allele,         // look-up 2
+            homozygous_primary_allele,   // look-up 3
+        ]
+    } else {
+        [
+            homozygous_primary_allele,   // look-up 0
+            missing_value,               // look-up 1
+            heterozygous_allele,         // look-up 2
+            homozygous_secondary_allele, // look-up 3
+        ]
+    }
+}
+
+
 mod tests {
     #[allow(unused_imports)]
     use super::nonmissing_mask_u8;

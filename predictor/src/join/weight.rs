@@ -25,6 +25,7 @@ pub struct Weights {
     pub score_names: Vec<String>,
 }
 
+/// [Weights] containing weights and meta data for pgs prediction
 impl Weights {
     pub fn new(
         mut matched_beta: DataFrame,

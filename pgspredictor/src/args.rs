@@ -7,7 +7,7 @@ use predictor::{
     meta::{MetaArg, MissingStrategy, QrangeOrScorenames},
 };
 
-/// Command argument
+/// Command line argument
 #[derive(Parser, Debug)]
 #[command(
     name = "pgspredictor.rs", 
@@ -51,6 +51,7 @@ pub struct MyArgs {
     #[arg(long, default_value_t = false)]
     pub batch_ind: bool,
 
+    /// The column name set for beta tsv
     #[command(flatten)]
     pub beta_col: BetaCol,
 

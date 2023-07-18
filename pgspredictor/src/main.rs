@@ -4,7 +4,6 @@ mod args;
 mod runner;
 mod utils;
 
-use std::fs::File;
 
 use args::MyArgs;
 use clap::Parser;
@@ -82,6 +81,7 @@ fn main() {
     main_fn();
 
     /* 
+    use std::fs::File;
     if let Ok(report) = guard.report().build() {
         let file = File::create("flamegraph.svg").unwrap();
         let mut options = pprof::flamegraph::Options::default();

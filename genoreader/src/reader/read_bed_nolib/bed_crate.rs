@@ -190,7 +190,7 @@ fn set_up_two_bits_to_value<TVal: From<i8>>(count_a1: bool, missing_value: TVal)
 type Array1Usize = nd::ArrayBase<nd::OwnedRepr<usize>, nd::Dim<[usize; 1]>>;
 type Array1U8 = nd::ArrayBase<nd::OwnedRepr<u8>, nd::Dim<[usize; 1]>>;
 
-fn check_and_precompute_iid_index(
+pub fn check_and_precompute_iid_index(
     in_iid_count: usize,
     iid_index: &[isize],
 ) -> Result<(Array1Usize, Array1U8), BedErrorPlus> {

@@ -5,10 +5,10 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use super::bit_op::nonmissing_mask_u8;
+use super::bit_op::{nonmissing_mask_u8,set_up_two_bits_to_value};
 use ndarray::{s, Array, Ix2, ArrayBase, ViewRepr, Dim};
 
-use crate::reader::read_bed_nolib::bed_crate::{open_and_check, try_div_4};
+use crate::reader::read_bed_nolib::bed_crate::{open_and_check, try_div_4, check_and_precompute_iid_index};
 
 #[allow(dead_code)]
 const BED_FILE_MAGIC1: u8 = 0x6C; // 0b01101100 or 'l' (lowercase 'L')
@@ -144,29 +144,49 @@ impl BedSnpReader {
         val = self.truncate_geno(val);
         Ok(val)
     }
-}
 
-fn set_up_two_bits_to_value(count_a1: bool, missing_value: f32) -> [f32; 4] {
-    let homozygous_primary_allele = 0.; // Major Allele
-    let heterozygous_allele = 1.;
-    let homozygous_secondary_allele = 2.; // Minor Allele
+    pub fn read_to_ndarray_ind(
+        &mut self,
+        sid_idxs: &[isize],
+        iid_idxs: &[isize],
+        swap_vec: &[bool],
+    ) -> Result<Array<f32, Ix2>> {
+        // Check the file length
+        let mut val = Array::<f32, Ix2>::default((iid_idxs.len(), sid_idxs.len()));
 
-    if count_a1 {
-        [
-            homozygous_secondary_allele, // look-up 0
-            missing_value,               // look-up 1
-            heterozygous_allele,         // look-up 2
-            homozygous_primary_allele,   // look-up 3
-        ]
-    } else {
-        [
-            homozygous_primary_allele,   // look-up 0
-            missing_value,               // look-up 1
-            heterozygous_allele,         // look-up 2
-            homozygous_secondary_allele, // look-up 3
-        ]
+        // Check and precompute for each iid_index
+        let (i_div_4_array, i_mod_4_times_2_array) =
+            check_and_precompute_iid_index(self.in_iid_count, iid_idxs)?;
+    
+        // Possible optimization: We could try to read only the iid info needed
+        // Possible optimization: We could read snp in their input order instead of
+        // their output order
+        sid_idxs
+            .iter()
+            // Zip in the column of the output array
+            .zip(swap_vec.iter())
+            .zip(val.axis_iter_mut(ndarray::Axis(1)))
+            // In parallel, decompress the iid info and put it in its column
+            .try_for_each(|((idx, swap_flag), mut col)| -> Result<()> {
+                let byte_vec: Vec<u8> = self.read_snp(*idx as u64)?;
+                for out_iid_i in 0..iid_idxs.len() {
+                    let i_div_4: usize = i_div_4_array[out_iid_i];
+                    let i_mod_4_times_2 = i_mod_4_times_2_array[out_iid_i];
+                    let genotype_byte: u8 = (byte_vec[i_div_4] >> i_mod_4_times_2) & 0x03;
+                    if *swap_flag {
+                        col[out_iid_i] = 2.-self.bit_map[genotype_byte as usize];
+                    } else {
+                        col[out_iid_i] = self.bit_map[genotype_byte as usize];
+                    }
+                }
+                Ok(())
+            })?;
+    
+        Ok(val)
     }
+    
 }
+
 
 fn byte_vec_to_freq(byte_vec: &[u8]) -> f32 {
     let (nonmissing_count, ones_count) = byte_vec.iter().fold(
