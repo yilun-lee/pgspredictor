@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use super::bit_op::{nonmissing_mask_u8,set_up_two_bits_to_value};
-use ndarray::{s, Array, Ix2, ArrayBase, ViewRepr, Dim};
+use ndarray::{s, Array, Ix2, ArrayBase, ViewRepr, Dim, Ix1};
 
 use crate::reader::read_bed_nolib::bed_crate::{open_and_check, try_div_4, check_and_precompute_iid_index};
 
@@ -90,10 +90,10 @@ impl BedSnpReader {
         &mut self,
         sid_idxs: &[isize],
         swap_vec: &[bool],
-    ) -> Result<Array<f32, Ix2>> {
+    ) -> Result<(Array<f32, Ix2>,Vec<f32>)> {
         let total_iid = self.in_iid_count_div4 * 4;
         let mut val = Array::<f32, Ix2>::default((total_iid, sid_idxs.len()));
-
+        let mut freq_vec: Vec<f32> = vec![];
         // read by each snp
         sid_idxs
             .iter()
@@ -105,6 +105,7 @@ impl BedSnpReader {
                 // calculate freq
                 let freq = byte_vec_to_freq(&byte_vec);
                 self.bit_map[1] = freq;
+                freq_vec.push(freq);
                 // into array
                 byte_vec_to_arr(byte_vec, *swap_flag, &self.iid_idx, col, &self.bit_map);
                 Ok(())
@@ -112,7 +113,7 @@ impl BedSnpReader {
 
         // truncate extra 0
         val = self.truncate_geno(val);
-        Ok(val)
+        Ok((val,freq_vec))
     }
 
     pub fn read_to_ndarray_freq(

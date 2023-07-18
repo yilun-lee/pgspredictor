@@ -50,14 +50,14 @@ hyperfine --warmup 3 -r 10 \
     ${MODEL} \
     ${BFILE} \
     -o /tmp/test \
-    -T 1 -B 2000 \
+    -T 1 -B 20000 \
     -n PGS000099  -M Impute 
     " \
     "./target/release/pgspredictor \
     ${MODEL} \
     ${BFILE} \
     -o /tmp/test \
-    -T 1 -B 2000 \
+    -T 1 -B 20000 \
     -n PGS000099  -M Impute  --batch-ind
     " \
     "plink2 --bfile ${BFILE}  \

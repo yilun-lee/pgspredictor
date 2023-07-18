@@ -50,7 +50,7 @@ pub fn cal_score_array(
 pub fn cal_score_array_freq_reader(
     reader: &mut FreqBedReader,
     weights: &Weights,
-) -> Result<Array2<f32>> {
+) -> Result<(Array2<f32>,Option<Vec<f32>>)> {
 
     let (stat_vec, freq_vec): (Vec<_>, Vec<_>) = weights.status_freq_vec.iter().cloned().unzip();
     let stat_vec: Vec<bool> = stat_vec.into_iter().map(|x| match x {
@@ -58,7 +58,7 @@ pub fn cal_score_array_freq_reader(
         Some(v) => v == SWAP,
     }).collect();
 
-    let gt = match weights.missing_strategy {
+    let (gt, freq_vec) = match weights.missing_strategy {
         MissingStrategy::Impute => {
             reader.read_snp(&weights.sid_idx, Some(&stat_vec), None)?
         },
@@ -74,7 +74,7 @@ pub fn cal_score_array_freq_reader(
 
     // get beta and cal score
     let score = gt.dot(&weights.beta_values);
-    Ok(score)
+    Ok((score,freq_vec))
 }
 
 

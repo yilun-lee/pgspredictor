@@ -7,7 +7,7 @@ use std::{path::Path, sync::Arc};
 use anyhow::{anyhow, Result};
 
 
-use ndarray::Array2;
+use ndarray::{Array2, Array1};
 use polars::prelude::{DataFrame, ChunkedArray, BooleanType};
 
 use super::read_bed_nolib::read_meta::{read_bim, read_fam};
@@ -80,19 +80,20 @@ impl FreqBedReader {
         })
     }
 
-    pub fn read_snp(&mut self, snp_idx: &[isize], swap_vec: Option<&[bool]>, freq_vec: Option<&[f32]>) -> Result<Array2<f32>>{
+    pub fn read_snp(&mut self, snp_idx: &[isize], swap_vec: Option<&[bool]>, freq_vec: Option<&[f32]>) -> Result<(Array2<f32>, Option<Vec<f32>>)>{
         let default_swap_vec: Vec<bool> = vec![false; snp_idx.len()];
         let swap_vec = match swap_vec{
             Some(v) => v, 
             None => &default_swap_vec,
         };
 
-        let val = if freq_vec.is_none() {
-            self.bed_reader.read_to_ndarray(snp_idx, swap_vec)?
+        if freq_vec.is_none() {
+            let (val, freq_vec) = self.bed_reader.read_to_ndarray(snp_idx, swap_vec)?;
+            return Ok((val, Some(freq_vec)));
         } else {
-            self.bed_reader.read_to_ndarray_freq(snp_idx, swap_vec, freq_vec.unwrap())?
+            let val = self.bed_reader.read_to_ndarray_freq(snp_idx, swap_vec, freq_vec.unwrap())?;
+            return Ok((val, None));
         };
-        Ok(val)
     }
 
 

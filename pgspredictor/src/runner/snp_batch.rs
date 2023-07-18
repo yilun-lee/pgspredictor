@@ -6,7 +6,7 @@ use genoreader::{BfileSet, FreqBedReader};
 use log::debug;
 use ndarray::Array2;
 //use ndarray::prelude::*;
-use polars::prelude::{read_impl::OwnedBatchedCsvReader, DataFrame};
+use polars::{prelude::{read_impl::OwnedBatchedCsvReader, DataFrame, NamedFrom, IntoLazy, Literal}, series::Series};
 use predictor::{
     join::{match_snp, weight::Weights, MatchStatus},
     meta::MetaArg,
@@ -55,12 +55,16 @@ pub fn cal_score_batch_snp_single(
         // add match_status
         match_status = match_status + new_match_status;
         // cal score
-        let score = cal_score_array_freq_reader(&mut geno_reader, &weights)?;
+        let (score, freq_vec) = cal_score_array_freq_reader(&mut geno_reader, &weights)?;
         score_sum = match score_sum {
             Some(v) => Some(v + score),
             None => Some(score),
         };
         // write beta
+        if freq_vec.is_some(){
+            let c = Series::new("FREQ", freq_vec.unwrap());
+            matched_beta = matched_beta.lazy().with_column(c.lit()).collect()?;
+        }
         if i == 0 {
             write_beta(&mut matched_beta, meta_arg.out_prefix, false)?;
         } else {
@@ -110,10 +114,14 @@ impl ThreadWorkerBatchSnp<'_> {
             };
             beta = beta.select(&*self.cols)?;
             // match snp
-            let (weights, match_status, matched_beta) =
+            let (weights, match_status, mut matched_beta) =
                 match_snp(&self.meta_arg, &self.cols, &geno_reader.bfile_set.bim, beta)?;
             // cal score
-            let score = cal_score_array_freq_reader(&mut geno_reader, &weights)?;
+            let (score, freq_vec) = cal_score_array_freq_reader(&mut geno_reader, &weights)?;
+            if freq_vec.is_some(){
+                let c = Series::new("FREQ", freq_vec.unwrap());
+                matched_beta = matched_beta.lazy().with_column(c.lit()).collect()?;
+            }
             self.sender
                 .send((score, match_status, matched_beta))
                 .unwrap();

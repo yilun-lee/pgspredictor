@@ -1,6 +1,6 @@
 use anyhow::Result;
 use betareader::{BetaArg, A1, CHR, FREQ, ID, POS, PVALUE};
-use clap::{Args, Parser};
+use clap::{Args, Parser, Subcommand};
 use log::{debug, warn};
 use predictor::{
     join::betahandler::QRange,
@@ -111,6 +111,8 @@ pub struct BetaCol {
     #[arg(long, default_value = PVALUE)]
     pub pvalue: String,
 }
+
+
 
 impl MyArgs {
     /// Convert [MyArgs] into [BetaArg] and [MetaArg]
