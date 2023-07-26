@@ -1,4 +1,6 @@
+use env_logger::Builder;
 use log::{info, LevelFilter};
+use polars::export::chrono;
 
 use crate::args::MyArgs;
 
@@ -10,7 +12,7 @@ pub fn print_run_config(cli: &MyArgs) {
     );
 }
 
-pub fn match_verbose(verbose_count: u8) -> LevelFilter {
+fn match_verbose(verbose_count: u8) -> LevelFilter {
     match verbose_count {
         0 => LevelFilter::Warn,
         1 => LevelFilter::Info,
@@ -18,3 +20,11 @@ pub fn match_verbose(verbose_count: u8) -> LevelFilter {
         _ => LevelFilter::Trace,
     }
 }
+
+pub fn match_log(verbose: u8){
+    let my_level = match_verbose(verbose);
+    Builder::new().filter_level(my_level).init();
+    let time_stamp = chrono::Utc::now();
+    info!("Start pgs-predictor on {time_stamp}");
+}
+

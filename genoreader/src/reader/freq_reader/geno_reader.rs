@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use super::bit_op::{nonmissing_mask_u8,set_up_two_bits_to_value};
-use ndarray::{s, Array, Ix2, ArrayBase, ViewRepr, Dim, Ix1};
+use ndarray::{s, Array, Ix2, ArrayBase, ViewRepr, Dim};
 
 use crate::reader::read_bed_nolib::bed_crate::{open_and_check, try_div_4, check_and_precompute_iid_index};
 

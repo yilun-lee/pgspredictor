@@ -7,7 +7,7 @@ use std::{path::Path, sync::Arc};
 use anyhow::{anyhow, Result};
 
 
-use ndarray::{Array2, Array1};
+use ndarray::Array2;
 use polars::prelude::{DataFrame, ChunkedArray, BooleanType};
 
 use super::read_bed_nolib::read_meta::{read_bim, read_fam};

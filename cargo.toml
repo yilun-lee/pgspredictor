@@ -5,6 +5,7 @@ members = [
     "genoreader",
     "betareader",
     "pgspredictor",
+    "pgspost",
 ]
 
 
@@ -12,4 +13,5 @@ members = [
 [profile.release]
 strip = true
 debug = true
+
 

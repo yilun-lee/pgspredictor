@@ -1,7 +1,7 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use betareader::{BetaArg, A1, CHR, FREQ, ID, POS, PVALUE};
-use clap::{Args, Parser, Subcommand};
-use log::{debug, warn};
+use clap::{Args, Parser};
+use log::{debug, warn, info};
 use predictor::{
     join::betahandler::QRange,
     meta::{MetaArg, MissingStrategy, QrangeOrScorenames},
@@ -17,6 +17,9 @@ use predictor::{
 #[command(next_line_help = true)]
 #[command(propagate_version = true)]
 pub struct MyArgs {
+    /// analysis mode, one of ["Validate", "Predict", "Run", "CandT"]
+    pub mode: String,
+
     /// weight path, should be a tsv file
     pub weight_path: String,
 
@@ -64,25 +67,12 @@ pub struct MyArgs {
     #[arg(long, default_value_t = false)]
     pub write_beta: bool,
 
-    /// whether to calculate correlation between PHENO and score
-    #[arg(short = 'E', long, default_value_t = false)]
-    pub eval_flag: bool,
-
-    /// whether to output percentile and rank
-    #[arg(short = 'P', long, default_value_t = false)]
-    pub percentile_flag: bool,
-
-    /// path to rank file produce by pgs-predictor. RANK as the first column,
-    /// which is 0~100, and the other column are score names. If specified,
-    /// percentiles of sample scores are interpolated based on the rank.
-    #[arg(short = 'R', long)]
-    pub rank_path: Option<String>,
-
     /// q range file, a headerless tsv file consisted of three columns:
     /// **name**, **from** and **to**, used in filtering p value for
     /// weights.
     #[arg(short = 'Q', long)]
     pub q_ranges: Option<String>,
+
 }
 
 #[derive(Args, Debug)]
@@ -113,8 +103,65 @@ pub struct BetaCol {
 }
 
 
+#[derive(Debug)]
+enum ModeEnum{
+    Validate,
+    Predict,
+    Run,
+    CandT,
+}
+
+impl ModeEnum {
+    fn from_str(ss: &str) -> Result<ModeEnum>{
+        let ss = ss.to_ascii_lowercase();
+        if ss == "validate" || ss == "val" {
+            Ok(ModeEnum::Validate)
+        } else if ss == "predict" || ss == "pred" {
+            Ok(ModeEnum::Predict)
+        } else if ss == "run"  {
+            Ok(ModeEnum::Run)
+        } else if ss == "candt"  {
+            Ok(ModeEnum::CandT)
+        } else {
+            Err(anyhow!("Mode not found, should be one of the following: Validate, Predict, Test, Run, CandT, got {}", ss))
+        }
+    }
+}
+
+
 
 impl MyArgs {
+    // ["Validate", "Predict", "Test", "Run", "CandT"]
+    pub fn check_defaul(&mut self) -> Result<()>{
+        let mode = ModeEnum::from_str(&self.mode)?;
+        info!("Got mode {:?}, check arg accordingly", mode);
+        match mode {
+            ModeEnum::Validate => {
+                assert!(self.q_ranges.is_none(), "--q-ranges (-Q) should be None in Validate mode");
+                self.write_beta = true;
+                self.missing_strategy = "Impute".to_owned();
+                debug!("--write-beta is set to {}", self.write_beta);
+                debug!("--missing-strategy is set to {}", self.missing_strategy);
+            },
+            ModeEnum::CandT => {
+                assert!(self.q_ranges.is_some(), "--q-ranges (-Q) should be specified in CandT mode");
+                self.write_beta = true;
+                self.missing_strategy = "Impute".to_owned();
+                debug!("--write-beta is set to {}", self.write_beta);
+                debug!("--missing-strategy is set to {}", self.missing_strategy);
+            }
+            ModeEnum::Predict => {
+                assert!(self.q_ranges.is_none(), "--q-ranges (-Q) should be None in Predict mode");
+                self.write_beta = false;
+                self.missing_strategy = "Freq".to_owned();
+                debug!("--write-beta is set to {}", self.write_beta);
+                debug!("--missing-strategy is set to {}", self.missing_strategy);
+            },
+            ModeEnum::Run => (),
+        }
+        Ok(())
+    }
+
     /// Convert [MyArgs] into [BetaArg] and [MetaArg]
     /// [BetaArg] is for reading of beta from [betareader]
     pub fn get_structs(&self) -> Result<(BetaArg, MetaArg)> {

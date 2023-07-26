@@ -1,28 +1,29 @@
 ## Pgs-Predictor-rs
 
-This is a bio-informatics tools to calculate polygenic risk score (PGS) from [pgs model weights](https://www.pgscatalog.org) and [plink bed file](https://www.cog-genomics.org/plink/1.9/formats#bed) format. The main puropose of this tool is just like [plink2 linear score](https://www.cog-genomics.org/plink/2.0/score). However, it is aimed to provided more functions than plink. For now, the tool can take care of snp matching by physical position and a1 allele, and report number of match snps. And there is also option to use provided frequency to fill missing. The tools is still working in progress.
+This is a bio-informatics tools to calculate polygenic risk score (PGS) from [pgs model weights](https://www.pgscatalog.org) and [plink bed file](https://www.cog-genomics.org/plink/1.9/formats#bed) format. The main puropose of this tool is just like [plink2 linear score](https://www.cog-genomics.org/plink/2.0/score). However, it is aimed to provided more functions than plink. For now, the tool can take care of snp matching by physical position and a1 allele, and report number of match snps. And there is also option to use provided frequency to fill missing. The tools is still working in progress. There are two binary in this report: **pgspredictor** and **pgspost**. **pgspredictor** is the classic usecase for prediction, while **pgspost** is the post analysis based on predictions, such as percentile, evaluation and covariate.
 
 
 ### Feature
 
-We often use [plink](https://www.cog-genomics.org/plink) to calculate pgs, which is very fast and handy. However, plink only take care of the prediction for one model with swap and missing strategy. For a pgs pipeline, we requested for more features. 
+We often use [plink](https://www.cog-genomics.org/plink) to calculate pgs, which is very fast and handy. However, plink only take care of the prediction for one model with swap and missing strategy. For a pgs pipeline, we requested for more features. In addition, we also add q-range support for doing CandT like plink.
 
 ##### SNP joining and duplication handling
 
 First is the join of snp between genotype file and weights. Plink only care about the snp id. Here, we used CHR and POS and A1 to match snp, so the uses don't need to care about them beforehand. Moreover, we also deal with duplicated snp, which plink often ignored or raised error. Unlike plink use column index to fetch ID, A1 and weights, user-defined column names are accepted.
 
-##### Multiple models and percentils
+##### Multiple models and percentils, covariates
 
-There may be multiple pgs model for inference on the same genotype. **pgs-predictor-rs** can infer multiple models at the same times. In addition to scores, **pgs-predictor-rs** output percentils, rank and match status, which will be very beneficial in the downstream analyis. Last but not the least, user can provided score distribution from reference population, **pgs-predictor-rs** can calulate percentile of the score of the predicted against reference population (WIP feature).
+There may be multiple pgs model for inference on the same genotype. **pgs-predictor-rs** can infer multiple models at the same times. In addition to scores, **pgs-predictor-rs** output percentils, rank and match status, which will be very beneficial in the downstream analyis. Last but not the least, user can provided score distribution from reference population, **pgs-predictor-rs** can calulate percentile of the score of the predicted against reference population. We also working on to add simple covariate support. 
 
 ##### Batch and multiprocessing
 
-User can set batch size and number of thread for the program. Batch can be applied on sample axis or snp axis depending on your data. For genotype and weights that can fit into memory, multi-threading can help you to accelerate the whole program. For weights larger then memory, you can run batch along snp. Otherwise, for larger genotype, which is rare, you may run batch along sample. Multi-threading is still beneficial in such circumstance. **pgs-predictor-rs** can run faster (>5 times) than plink with proper combination of parametes even when there is only one model. 
+User can set batch size and number of thread for the program. Batch can be applied on sample axis or snp axis depending on your data. For genotype and weights that can fit into memory, multi-threading can help you to accelerate the whole program. For weights larger then memory, you can run batch along snp. Otherwise, for larger genotype, which is rare, you may run batch along sample. Multi-threading is still beneficial in such circumstance. For speed, **pgs-predictor-rs** is a bit slower than plink with proper combination of parametes.
+
 
 
 ### Pipeline
 
-The following pipeline is how **pgs-predictor-rs** predict pgs from weights and genotype.
+The following pipeline is how **pgspredictor**  predict pgs from weights and genotype.
 
 1. Read Bfile and Beta
 2. Join Bfile and Beta (by CHR, POS, A1 or by ID, A1) and report match status.
@@ -30,73 +31,72 @@ The following pipeline is how **pgs-predictor-rs** predict pgs from weights and 
    1. Swap snp if needed.
    2. Fill missing genotype with strategy specified by user.
    3. Dot Genotypes and weights to get pgs score.
-4. Save results and calculate rank and percentile if specified. 
+4. Save predict results. 
+
+After prediction, **pgspost** may do the following (WIP): 
+
+1. Load score, Load covariate (optional)
+2. Fit or predict with covariate model (optional, WIP)
+3. Convert it to percentile w/wo reference rank.
+4. Evaluate if specified.
+5. Save retults 
+
 
 ### Usage
 
-You may check the usage as following:
+You may check the usage as following. Only show the tupper part. For detail feel free to run the help command yourself.
+
+#### pgspredictor
 
 ```bash
-predictor -h
+pgspredictor -h
 ```
 
 ```console
-A pgs predictor written in rust
-
-Usage: pgspredictor [OPTIONS] --out-prefix <OUT_PREFIX> <WEIGHT_PATH> <BED_PATH>
+Usage: pgspredictor [OPTIONS] --out-prefix <OUT_PREFIX> <MODE> <WEIGHT_PATH> <BED_PATH>
 
 Arguments:
+  <MODE>
+          analysis mode, one of ["Validate", "Predict", "Run", "CandT"]
   <WEIGHT_PATH>
           weight path, should be a tsv file
   <BED_PATH>
           path to plink bed files
-
-Options:
-  -o, --out-prefix <OUT_PREFIX>
-          output prefix
-  -n, --score-names <SCORE_NAMES>
-          score names: scores to be process
-  -T, --thread-num <THREAD_NUM>
-          number of thread to run [default: 1]
-  -B, --batch-size <BATCH_SIZE>
-          batch size for sample / or snp if batch-snp flag is set [default: 10000]
-      --match-id-flag
-          whether to match by id instead of match by pos and chrom
-  -v, --verbose...
-          whether to show log, use -v -vv -vvv to present increase log level
-      --batch-ind
-          whether to batch by ind, default is batch by snp
-      --chrom <CHROM>
-          chromosome column for weight file [default: CHR]
-      --pos <POS>
-          position column for weight file [default: POS]
-      --snp-id <SNP_ID>
-          id column for weight file [default: ID]
-      --a1 <A1>
-          a1 column for weight file [default: A1]
-      --freq <FREQ>
-          freq column for weight file [default: FREQ]
-      --pvalue <PVALUE>
-          pvalue column for weight file, required when --q-ranges is specifeid [default: P]
-  -M, --missing-strategy <MISSING_STRATEGY>
-          Strategy to deal with missing value in genotype. Should be one of the following: Freq, Impute and Zero [default: Impute]
-      --write-beta
-          whether to write matched snp and related information to *.beta.csv
-  -E, --eval-flag
-          whether to calculate correlation between PHENO and score
-  -P, --percentile-flag
-          whether to output percentile and rank
-  -R, --rank-path <RANK_PATH>
-          path to rank file produce by pgs-predictor. RANK as the first column, which is 0~100, and the other column are score names. If specified, percentiles of sample scores are interpolated based on the rank
-  -Q, --q-ranges <Q_RANGES>
-          q range file, a headerless tsv file consisted of three columns: **name**, **from** and **to**, used in filtering p value for weights
-  -h, --help
-          Print help
-  -V, --version
-          Print version
 ```
 
-There are three required arguments: `--weight-path <WEIGHT_PATH> --bed-path <BED_PATH> --out-path <OUT_PATH>` 
+Because there are a lot of argument, we add some shortcut, that is, different mode, to use preset parameter. Please check the table. For **Run** mode, no argument check is done.
+
+|Mode|--write-beta|--missing-strategy|--q-ranges|
+| :--: | :--: | :--: | :--: |
+|Validate|true|Impute|X|
+|CandT|true|Impute|V|
+|Predict|false|Freq|X|
+|Run|-|-|-|
+
+#### pgspost
+
+Same as **pgspredictor**. There are mode as shortcut and check.
+
+```bash
+pgspost -h
+```
+
+```console
+Usage: pgspost [OPTIONS] --out-prefix <OUT_PREFIX> <MODE> <SCORE_PATH>
+
+Arguments:
+  <MODE>
+          mode, should be Predict / Validate
+  <SCORE_PATH>
+          weight path, should be a tsv file
+```
+|Mode|--eval-flag|--rank-path|
+| :--: | :--: | :--: |
+|Validate|true|X|
+|Predict|false|V|
+|Run|-|-|
+
+
 
 ##### WEIGHT_PATH
 

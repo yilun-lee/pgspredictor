@@ -6,6 +6,7 @@ hyperfine --warmup 3 -r 10 "${PLINK2}" "${RUST_PRS}"
 export RUST_BACKTRACE=1
 cargo build -p pgspredictor
 ./target/debug/pgspredictor \
+    Predict \
     "data/input/Weights.tsv" \
     "data/input/test" \
     -o "data/output/test" \
@@ -13,19 +14,11 @@ cargo build -p pgspredictor
     -n "Lassosum" -n CandT -M Impute -P \
     --rank-path data/output/test.rank.csv -vv 
 
-./target/debug/pgspredictor \
-    "data/input/Weights.tsv" \
-    "data/input/test" \
-    -o "data/output/test" \
-    -T 1 -B 5000 \
-    -n "Lassosum" -n CandT -M Impute -P \
-    --rank-path data/output/test.rank.csv -vv \
-    -Q data/input/test.range -E --batch-ind
-
 
 BFILE="/Users/sox/Desktop/AILAB_DATA/Data/CLU_DATA/rename"
 MODEL="/Users/sox/Desktop/AILAB_DATA/Data/PGS000099.tsv"
 ./target/debug/pgspredictor \
+    Validate \
     ${MODEL} \
     ${BFILE} \
     -o /tmp/test \
@@ -63,3 +56,21 @@ hyperfine --warmup 3 -r 10 \
     "plink2 --bfile ${BFILE}  \
     --score ${MODEL} 3 6 10 header cols=+scoresums ignore-dup-ids\
     --out /tmp/test"
+
+
+
+./target/debug/pgspost \
+    Validate \
+    "data/output/test.score.csv" \
+    -o "data/output/test" \
+    -n "Lassosum" -n CandT -vv -E
+
+
+./target/debug/pgspost \
+    Predict \
+    "data/output/test.score.csv" \
+    -R data/output/test.rank.csv \
+    -o "data/output/test" \
+    -n "Lassosum" -n CandT -vv 
+
+

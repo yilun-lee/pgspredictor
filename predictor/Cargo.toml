@@ -11,7 +11,7 @@ betareader = {path = "../betareader"}
 ndarray = { version = "0.15.6", features = ["blas"] }
 blas-src = { version = "0.9", default-features = false, features = ["accelerate"] }
 anyhow = "1.0.71"
-polars = { version = "0.30.0", features = ["lazy", "ndarray", "rank", "propagate_nans"] }
+polars = { version = "0.31.1", features = ["lazy", "ndarray", "rank", "propagate_nans"] }
 serde = "1.0.163"
 log = "0.4"
 env_logger = "0.10.0"

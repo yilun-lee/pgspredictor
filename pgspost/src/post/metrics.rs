@@ -1,32 +1,14 @@
+
 use anyhow::Result;
 use genoreader::meta::PHENO;
-use ndarray::{Array, Array1};
 use polars::{
     lazy::dsl::{col, lit, pearson_corr, spearman_rank_corr},
-    prelude::{DataFrame, DataType, IntoLazy},
     series::Series,
+    prelude::{DataFrame, DataType,IntoLazy}
 };
 
-pub fn pearson_cor_1d(a: &Array1<f32>, b: &Array1<f32>) -> Option<f32> {
-    let ll = a.shape()[0];
-
-    let mut a_mean = Array::ones(ll);
-    a_mean.fill(a.mean()?);
-
-    let mut b_mean = Array::ones(ll);
-    b_mean.fill(b.mean()?);
-
-    let upper_part = (a * b).sum();
-
-    let a2 = &a.mapv(|v| v.powi(2)).sum();
-    let b2 = &b.mapv(|v| v.powi(2)).sum();
-    let lower_part = a2 * b2;
-
-    let cor = upper_part / lower_part.sqrt();
-    Some(cor)
-}
-
-pub fn cal_cor(scores: &DataFrame, score_names: &Vec<String>) -> Result<DataFrame> {
+/// calculate correlation between score and phenotype
+pub fn cal_cor_fn(scores: &DataFrame, score_names: &Vec<&str>) -> Result<DataFrame> {
     let p_name = "pearson";
     let s_name = "spearman";
     let mut cor_res = DataFrame::new(vec![
@@ -55,3 +37,4 @@ pub fn cal_cor(scores: &DataFrame, score_names: &Vec<String>) -> Result<DataFram
     }
     Ok(cor_res)
 }
+

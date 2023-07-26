@@ -7,25 +7,22 @@ mod utils;
 
 use args::MyArgs;
 use clap::Parser;
-use env_logger::Builder;
 use genoreader::{BedReaderNoLib, BfileSet};
 use log::{debug, info};
-use polars::{export::chrono, prelude::DataFrame};
+use polars::prelude::DataFrame;
 use predictor::join::MatchStatus;
 
 use crate::{
     runner::{post::PgsResult, Runner},
-    utils::{match_verbose, print_run_config},
+    utils::{match_log, print_run_config},
 };
 
 fn main_fn() {
     // parse
-    let cli = MyArgs::parse();
+    let mut cli: MyArgs = MyArgs::parse();
     // get logger
-    let my_level = match_verbose(cli.verbose);
-    Builder::new().filter_level(my_level).init();
-    let time_stamp = chrono::Utc::now();
-    info!("Start pgs-predictor on {time_stamp}");
+    match_log(cli.verbose);
+    cli.check_defaul().unwrap();
 
     // parse to Runner obj
     let runner = Runner::from_args(&cli).unwrap();
@@ -59,11 +56,7 @@ fn main_fn() {
     let mut pgs_score = PgsResult::new(
         &mut scores,
         match_status,
-        &cli.score_names,
         &cli.out_prefix,
-        cli.percentile_flag,
-        &cli.rank_path,
-        cli.eval_flag,
     );
     pgs_score.write_output().unwrap();
     info!("Complete pgs-predictor!");

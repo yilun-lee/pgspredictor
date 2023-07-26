@@ -4,7 +4,7 @@ use genoreader::meta::IDX;
 use ndarray::Array2;
 use polars::{
     lazy::dsl::lit,
-    prelude::{DataFrame, Float32Type, IntoLazy},
+    prelude::{DataFrame, Float32Type, IntoLazy, IndexOrder},
 };
 
 use crate::meta::{MissingStrategy, STATUS};
@@ -35,7 +35,7 @@ impl Weights {
         // weights
         let beta_values = matched_beta
             .select(&score_names)?
-            .to_ndarray::<Float32Type>()?;
+            .to_ndarray::<Float32Type>(IndexOrder::Fortran)?;
         // get sid index in bfile
         let sid_idx: Vec<isize> = matched_beta
             .column(IDX)?

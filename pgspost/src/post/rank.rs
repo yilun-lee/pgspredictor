@@ -30,7 +30,7 @@ pub fn get_self_percentile(scores: &DataFrame) -> Result<DataFrame> {
     Ok(percentiles)
 }
 
-pub fn get_pr_table(scores: &DataFrame, score_names: &Vec<String>) -> Result<DataFrame> {
+pub fn get_pr_table(scores: &DataFrame, score_names: &Vec<&str>) -> Result<DataFrame> {
     let my_range: Vec<i32> = (0..101).collect();
     let pr_series = Series::from_vec(RANK, my_range);
     let mut my_columns: Vec<Series> = vec![pr_series];
@@ -53,7 +53,7 @@ pub fn get_pr_table(scores: &DataFrame, score_names: &Vec<String>) -> Result<Dat
 pub fn get_percentile_from_ref(
     scores: &DataFrame,
     ref_rank: &DataFrame,
-    score_names: &Vec<String>,
+    score_names: &Vec<&str>,
 ) -> Result<DataFrame> {
     let quantiles: Vec<f32> = ref_rank.column(RANK)?.f32()?.into_no_null_iter().collect();
     let mut series_vec = vec![scores.column(FID)?.clone(), scores.column(IID)?.clone()];

@@ -5,5 +5,4 @@ extern crate log;
 
 pub mod join;
 pub mod meta;
-pub mod post;
 pub mod predict;

@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use polars::{
-    lazy::dsl::{all_exprs, col, lit, when},
+    lazy::dsl::{all_horizontal, col, lit, when},
     prelude::{DataFrame, IntoLazy},
 };
 
@@ -22,7 +22,7 @@ pub fn handle_beta(
     beta = beta
         .select(my_cols)?
         .lazy()
-        .filter(all_exprs([col("*").is_not_null()]))
+        .filter(all_horizontal([col("*").is_not_null()]))
         .collect()?;
 
     // get new beta from q range and get new score_names
