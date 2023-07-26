@@ -9,7 +9,8 @@ edition = "2021"
 genoreader = {path = "../genoreader"}
 betareader = {path = "../betareader"}
 ndarray = { version = "0.15.6", features = ["blas"] }
-blas-src = { version = "0.9", default-features = false, features = ["accelerate"] }
+blas-src = { version = "0.9", features = ["openblas"] }
+openblas-src = { version = "0.10", features = ["cblas", "system"] }
 anyhow = "1.0.71"
 polars = { version = "0.31.1", features = ["lazy", "ndarray", "rank", "propagate_nans"] }
 serde = "1.0.163"
@@ -17,4 +18,3 @@ log = "0.4"
 env_logger = "0.10.0"
 interp = "1.0"
 
-#pprof = { version = "0.11", features = ["flamegraph"] }
