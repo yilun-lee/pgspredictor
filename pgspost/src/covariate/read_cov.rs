@@ -10,7 +10,7 @@ pub const META_COLS: [&str;2] = ["FID", "IID"];
 
 pub struct CovFrame {
     cov_frame: DataFrame,
-    covtypes: Vec<CovType>,
+    cov_types: Vec<CovType>,
     cov_names: Vec<String>,
 }
 

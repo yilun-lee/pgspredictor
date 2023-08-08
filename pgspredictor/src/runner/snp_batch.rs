@@ -76,7 +76,7 @@ pub fn cal_score_batch_snp_single(
     // unwrap score
     let score_sum = match score_sum {
         Some(v) => v,
-        None => return Err(anyhow!("score_sum is not initialized")),
+        None => return Err(anyhow!("score_sum is not initialized, there may be no snp found")),
     };
     // score for frame
     let batch_fam = geno_reader.bfile_set.get_ind(None, false)?;
@@ -105,7 +105,12 @@ impl ThreadWorkerBatchSnp<'_> {
     fn run(&mut self) -> Result<()> {
         let mut beta: DataFrame;
         let mut i = 0;
-
+        let mut matched_beta: DataFrame;
+        let mut match_status: MatchStatus;
+        let mut weights: Weights;
+        let mut score: Array2<f32>;
+        let mut freq_vec: Option<Vec<f32>>;
+    
         let mut geno_reader = FreqBedReader::new(self.bfileset.clone())?;
         loop {
             beta = match self.receiver.recv()? {
@@ -114,10 +119,16 @@ impl ThreadWorkerBatchSnp<'_> {
             };
             beta = beta.select(&*self.cols)?;
             // match snp
-            let (weights, match_status, mut matched_beta) =
-                match_snp(&self.meta_arg, &self.cols, &geno_reader.bfile_set.bim, beta)?;
+            (weights, match_status, matched_beta) = match match_snp(&self.meta_arg, &self.cols, &geno_reader.bfile_set.bim, beta)
+            {
+                Ok(v) => v,
+                Err(e) => {
+                    debug!("{}", e);
+                    continue;
+                }
+            };
             // cal score
-            let (score, freq_vec) = cal_score_array_freq_reader(&mut geno_reader, &weights)?;
+            (score, freq_vec) = cal_score_array_freq_reader(&mut geno_reader, &weights)?;
             if freq_vec.is_some(){
                 let c = Series::new("FREQ", freq_vec.unwrap());
                 matched_beta = matched_beta.lazy().with_column(c.lit()).collect()?;
@@ -128,6 +139,7 @@ impl ThreadWorkerBatchSnp<'_> {
             debug!("Complete {} batch", i + 1);
             i += 1;
         }
+        debug!("Complete worker");
         Ok(())
     }
 }
@@ -143,10 +155,9 @@ pub fn cal_score_batch_snp_par(
     let (input_sender, input_receiver) = bounded(meta_arg.thread_num * 2);
     let (output_sender, output_receiver) = unbounded();
 
-
     // init worker
     let cols: Arc<Vec<String>> = Arc::new(cols);
-    let meta_arg = Arc::new(meta_arg.clone());
+    let meta_arg: Arc<&MetaArg<'_>> = Arc::new(meta_arg.clone());
     let bfileset = Arc::new(bfileset);
 
     let (score_sum, match_status) = thread::scope(|scope| -> Result<(Array2<f32>, MatchStatus)> {
@@ -180,7 +191,6 @@ pub fn cal_score_batch_snp_par(
         for _ in 0..meta_arg.thread_num {
             input_sender.send(None).unwrap();
         }
-
         // collect result untils output_sender is terminated
         let (score_sum, match_status) =
             join_threads_collect_result(output_receiver, meta_arg.out_prefix, write_match)?;

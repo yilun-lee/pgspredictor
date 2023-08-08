@@ -1,5 +1,4 @@
 mod rank;
-mod metrics;
 
 use std::{
     fs::File,
@@ -9,7 +8,7 @@ use polars::prelude::{CsvReader, CsvWriter, DataFrame, DataType, Field, Schema, 
 use anyhow::Result;
 use log::info;
 
-use predictor::meta::RANK;
+use predictor::{meta::RANK, metrics};
 use crate::read_score::PgsScores;
 use rank::{get_percentile_from_ref, get_pr_table, get_self_percentile};
 

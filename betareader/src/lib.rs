@@ -103,18 +103,30 @@ impl<'a> BetaArg<'a> {
         Ok((Schema::from_iter(field_vec), cols))
     }
 
-    pub fn batch_read(&self, batch_size: usize) -> Result<(OwnedBatchedCsvReader, Vec<String>)> {
+    pub fn batch_read(&self, mut batch_size: usize) -> Result<(OwnedBatchedCsvReader, Vec<String>)> {
         let (my_schmema, cols) = self.get_beta_schema()?;
-
+        let my_schmema = Arc::new(my_schmema);
         // https://github.com/pola-rs/polars/blob/main/py-polars/src/batched_csv.rs
         let file = File::open(self.weight_path)?;
+        // make sure batch_size > line number 
+        let tmp_beta: DataFrame = CsvReader::from_path(self.weight_path)?
+            .with_delimiter(b'\t')
+            .with_encoding(CsvEncoding::LossyUtf8)
+            .with_schema(my_schmema.clone())
+            .with_n_rows(Some(batch_size))
+            .has_header(true)
+            .finish()?;
+        if tmp_beta.height() < batch_size{
+            batch_size = tmp_beta.height() ;
+        }
+
         let reader = Box::new(file) as Box<dyn MmapBytesReader>;
-        let reader = CsvReader::new(reader)
+        let reader: OwnedBatchedCsvReader = CsvReader::new(reader)
             .with_chunk_size(batch_size)
             .with_delimiter(b'\t')
             .with_encoding(CsvEncoding::LossyUtf8)
             .has_header(true)
-            .batched_read(Some(Arc::new(my_schmema)))?;
+            .batched_read(Some(my_schmema))?;
         Ok((reader, cols))
     }
 
