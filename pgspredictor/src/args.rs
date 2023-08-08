@@ -73,6 +73,10 @@ pub struct MyArgs {
     #[arg(short = 'Q', long)]
     pub q_ranges: Option<String>,
 
+    /// whether to calculate correlation between PHENO and score, for CandT only
+    #[arg(short = 'E', long, default_value_t = false)]
+    pub eval_flag: bool,
+    
 }
 
 #[derive(Args, Debug)]
@@ -140,6 +144,8 @@ impl MyArgs {
                 assert!(self.q_ranges.is_none(), "--q-ranges (-Q) should be None in Validate mode");
                 self.write_beta = true;
                 self.missing_strategy = "Impute".to_owned();
+                self.eval_flag = true;
+                debug!("--eval-flag (-E) is set to {}", self.eval_flag);
                 debug!("--write-beta is set to {}", self.write_beta);
                 debug!("--missing-strategy is set to {}", self.missing_strategy);
             },
@@ -147,6 +153,8 @@ impl MyArgs {
                 assert!(self.q_ranges.is_some(), "--q-ranges (-Q) should be specified in CandT mode");
                 self.write_beta = true;
                 self.missing_strategy = "Impute".to_owned();
+                self.eval_flag = true;
+                debug!("--eval-flag (-E) is set to {}", self.eval_flag);
                 debug!("--write-beta is set to {}", self.write_beta);
                 debug!("--missing-strategy is set to {}", self.missing_strategy);
             }
@@ -154,6 +162,8 @@ impl MyArgs {
                 assert!(self.q_ranges.is_none(), "--q-ranges (-Q) should be None in Predict mode");
                 self.write_beta = false;
                 self.missing_strategy = "Freq".to_owned();
+                self.eval_flag = false;
+                debug!("--eval-flag (-E) is set to {}", self.eval_flag);
                 debug!("--write-beta is set to {}", self.write_beta);
                 debug!("--missing-strategy is set to {}", self.missing_strategy);
             },

@@ -4,29 +4,39 @@ use log::info;
 use polars::prelude::{
     CsvWriter, DataFrame,  SerWriter,
 };
-use predictor::join::MatchStatus;
+use predictor::{join::MatchStatus, metrics};
 pub struct PgsResult<'a> {
     scores: &'a mut DataFrame,
     match_status: MatchStatus,
+    score_names: Vec<&'a str>,
     out_prefix: &'a str,
+    eval_flag: bool,
 }
 
 impl PgsResult<'_> {
     pub fn new<'a>(
         scores: &'a mut DataFrame,
         match_status: MatchStatus,
+        score_names: &'a Vec<String>,
         out_prefix: &'a str,
+        eval_flag: bool,
     ) -> PgsResult<'a> {
+        let score_names = score_names.iter().map(String::as_str).collect();
         PgsResult {
             scores,
             match_status,
+            score_names,
             out_prefix,
+            eval_flag,
         }
     }
 
     pub fn write_output(&mut self) -> Result<()> {
         self.write_score()?;
         self.write_status()?;
+        if self.eval_flag{
+            self.cal_cor()?
+        }
         Ok(())
     }
 
@@ -46,6 +56,17 @@ impl PgsResult<'_> {
         let mut file = File::create(&out_path)?;
         serde_json::to_writer_pretty(&mut file, &json_value)?;
         info!("Output check status to {}", out_path);
+        Ok(())
+    }
+
+    fn cal_cor(&self) -> Result<()> {
+        let out_path = self.out_prefix.to_owned() + ".cor.csv";
+        let mut cor_res = metrics::cal_cor_fn(&self.scores, &self.score_names).unwrap();
+        let out_file: File = File::create(&out_path)?;
+        CsvWriter::new(out_file)
+            .has_header(true)
+            .finish(&mut cor_res)?;
+        info!("Output correlation to {}", &out_path);
         Ok(())
     }
 

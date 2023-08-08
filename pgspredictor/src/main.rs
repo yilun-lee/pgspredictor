@@ -56,7 +56,9 @@ fn main_fn() {
     let mut pgs_score = PgsResult::new(
         &mut scores,
         match_status,
+        &cli.score_names,
         &cli.out_prefix,
+        cli.eval_flag
     );
     pgs_score.write_output().unwrap();
     info!("Complete pgs-predictor!");
