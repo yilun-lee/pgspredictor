@@ -21,8 +21,31 @@ MODEL="/mnt/prsdata/Test/TSGH_PGS_TWB2/PGS002742/models/PGS002742/model.tsv"
 
 
 
+
+
+./target/release/pgspredictor \
+    Validate \
+    /mnt/prsdata/Test/TSGH_PGS_TWB2/PGS002742/models/PGS002742/model.tsv \
+    /yilun/test/pgspredict/TWB2.rename  \
+    -o /yilun/test/pgspredict/PGS002742 \
+    -n PGS002742 \
+    -T 8 -B 20000 -vv
+
+
+./target/release/pgspost \
+    Validate \
+    /yilun/test/pgspredict/PGS002742.score.csv \
+    -o "/yilun/test/pgspredict/PGS002742" \
+    -n "PGS002742" -vv -E
+
+
+
+
+
+
+
 /mnt/prsdata/Test/TSGH_PGS_TWB2/PGS001248/models/PGS001248/model.tsv
-wc /mnt/prsdata/Test/TSGH_PGS_TWB2/*/models/*/model.tsv
+wc /mnt/prsdata/Test/TSGH_PGS_TWB2/*/models/*/model.tsv -l
 
 
 

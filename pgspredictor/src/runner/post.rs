@@ -64,10 +64,12 @@ pub fn write_beta(beta: &mut DataFrame, out_prefix: &str, append_flag: bool) -> 
     } else {
         File::create(&out_path)?
     };
+
+    let mut beta = beta.drop("STATUS")?;
     CsvWriter::new(out_file)
         .has_header(true)
         .with_delimiter(b'\t')
-        .finish(beta)?;
+        .finish(&mut beta)?;
     info!("Output beta to {}", &out_path);
     Ok(())
 }

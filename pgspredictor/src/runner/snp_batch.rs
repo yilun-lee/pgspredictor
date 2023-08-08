@@ -155,10 +155,9 @@ pub fn cal_score_batch_snp_par(
     let (input_sender, input_receiver) = bounded(meta_arg.thread_num * 2);
     let (output_sender, output_receiver) = unbounded();
 
-
     // init worker
     let cols: Arc<Vec<String>> = Arc::new(cols);
-    let meta_arg = Arc::new(meta_arg.clone());
+    let meta_arg: Arc<&MetaArg<'_>> = Arc::new(meta_arg.clone());
     let bfileset = Arc::new(bfileset);
 
     let (score_sum, match_status) = thread::scope(|scope| -> Result<(Array2<f32>, MatchStatus)> {

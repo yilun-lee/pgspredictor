@@ -5,7 +5,7 @@ hyperfine --warmup 3 -r 10 "${PLINK2}" "${RUST_PRS}"
 
 export RUST_BACKTRACE=1
 cargo build -p pgspredictor
-./target/debug/pgspredictor \
+./pgspredictor \
     Predict \
     "data/input/Weights.tsv" \
     "data/input/test" \
@@ -58,15 +58,15 @@ hyperfine --warmup 3 -r 10 \
     --out /tmp/test"
 
 
-
-./target/debug/pgspost \
+# Validate mode
+./pgspost \
     Validate \
     "data/output/test.score.csv" \
     -o "data/output/test" \
     -n "Lassosum" -n CandT -vv -E
 
-
-./target/debug/pgspost \
+# Predict mode
+./pgspost \
     Predict \
     "data/output/test.score.csv" \
     -R data/output/test.rank.csv \
